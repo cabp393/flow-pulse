@@ -5,9 +5,10 @@ import { GridCanvas } from '../ui/GridCanvas';
 interface Props {
   layout: Layout;
   run?: RunResult;
+  onOpenPlayer: (payload: { runId: string; palletId: string; palletIndex: number }) => void;
 }
 
-export function ResultsPage({ layout, run }: Props) {
+export function ResultsPage({ layout, run, onOpenPlayer }: Props) {
   const [selectedPallet, setSelectedPallet] = useState('');
   const [zoom, setZoom] = useState(24);
   const selectedIndex = useMemo(
@@ -53,6 +54,16 @@ export function ResultsPage({ layout, run }: Props) {
           disabled={!run.pallets.length || selectedIndex === run.pallets.length - 1}
         >
           →
+        </button>
+        <button
+          type="button"
+          disabled={!pallet}
+          onClick={() => {
+            if (!pallet) return;
+            onOpenPlayer({ runId: run.runId, palletId: pallet.palletId, palletIndex: selectedIndex });
+          }}
+        >
+          Ver en Player
         </button>
       </div>
       <div>

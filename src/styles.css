@@ -139,3 +139,30 @@ textarea {
   border-radius: 8px;
   padding: 6px 8px;
 }
+
+.cell.picker {
+  box-shadow: inset 0 0 0 2px #111827;
+  color: #111827;
+  font-size: 12px;
+}
+
+.player-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.player-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.player-indicators {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 10px;
+}

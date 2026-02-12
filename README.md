@@ -17,6 +17,7 @@ Aplicación web 100% frontend para diseñar layout de bodega, mapear SKUs, impor
 - Importación de pallets XLSX (`pallet_id`, `sku`), deduplicación por pallet.
 - Simulación con A* sobre grafo dirigido, issues de rutas imposibles.
 - Heatmap de pasos recorridos y detalle por pallet.
+- Player / Playback de recorridos pallet por pallet con controles de reproducción.
 - Export/Import JSON de estado completo.
 
 ## Ejecutar
@@ -30,6 +31,18 @@ npm run dev
 npm run build
 npm run test
 ```
+
+
+## Player / Playback
+- Ir a pestaña **player** o usar **Ver en Player** desde **results** para abrir un pallet preseleccionado.
+- Controles: `Play`, `Pause`, `Stop`, `Prev Pallet`, `Next Pallet`.
+- Velocidad configurable por presets (`0.25x` a `~16x` según ms por paso), `auto continuar` y `seguir cámara`.
+- Indicadores: pallet actual, paso actual/total, stops visitados y tiempo estimado.
+- Persistencia (`localStorage`): último `runId`, `palletIndex`, velocidad, `autoContinue`, `followCamera`.
+
+Atajos sugeridos:
+- `Prev/Next Pallet` para saltar pallets con incidencias (sin path).
+- Activar `auto continuar` para ejecutar todos los pallets de corrido.
 
 ## Persistencia y schema
 - Clave localStorage: `flowpulse.state`

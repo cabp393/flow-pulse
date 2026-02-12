@@ -63,10 +63,20 @@ export interface RunPalletResult {
 }
 
 export interface RunResult {
+  runId: string;
+  layoutHash: string;
   heatmap: number[][];
   pallets: RunPalletResult[];
   totalSteps: number;
   createdAt: string;
+}
+
+export interface PlayerPreferences {
+  runId?: string;
+  palletIndex: number;
+  speedMs: number;
+  autoContinue: boolean;
+  followCamera: boolean;
 }
 
 export interface AppState {
