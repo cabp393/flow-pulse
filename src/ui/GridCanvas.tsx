@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useRef } from 'react';
 import type { CellType, Coord, Layout } from '../models/domain';
 
 interface Props {
@@ -10,6 +11,8 @@ interface Props {
   heatmap?: number[][];
   path?: Coord[];
   pickAccessCells?: Coord[];
+  pickerPosition?: Coord;
+  followCamera?: boolean;
 }
 
 const colorByType: Record<CellType, string> = {
@@ -20,13 +23,32 @@ const colorByType: Record<CellType, string> = {
   END: '#f87171',
 };
 
-export function GridCanvas({ layout, zoom, onPaint, onSelect, selected, heatmap, path, pickAccessCells }: Props) {
+export function GridCanvas({
+  layout,
+  zoom,
+  onPaint,
+  onSelect,
+  selected,
+  heatmap,
+  path,
+  pickAccessCells,
+  pickerPosition,
+  followCamera,
+}: Props) {
   const maxHeat = Math.max(0, ...(heatmap?.flat() ?? [0]));
-  const pathSet = new Set((path ?? []).map((c) => `${c.x},${c.y}`));
-  const pickAccessSet = new Set((pickAccessCells ?? []).map((c) => `${c.x},${c.y}`));
+  const pathSet = useMemo(() => new Set((path ?? []).map((c) => `${c.x},${c.y}`)), [path]);
+  const pickAccessSet = useMemo(() => new Set((pickAccessCells ?? []).map((c) => `${c.x},${c.y}`)), [pickAccessCells]);
+  const pickerKey = pickerPosition ? `${pickerPosition.x},${pickerPosition.y}` : '';
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!followCamera || !pickerPosition || !rootRef.current) return;
+    const target = rootRef.current.querySelector<HTMLButtonElement>(`button[data-coord="${pickerKey}"]`);
+    target?.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
+  }, [followCamera, pickerKey, pickerPosition]);
 
   return (
-    <div className="grid-canvas" style={{ gridTemplateColumns: `repeat(${layout.width}, ${zoom}px)` }}>
+    <div ref={rootRef} className="grid-canvas" style={{ gridTemplateColumns: `repeat(${layout.width}, ${zoom}px)` }}>
       {layout.grid.map((row, y) =>
         row.map((cell, x) => {
           const heat = heatmap?.[y]?.[x] ?? 0;
@@ -34,17 +56,18 @@ export function GridCanvas({ layout, zoom, onPaint, onSelect, selected, heatmap,
           const isSelected = selected?.x === x && selected.y === y;
           const inPath = pathSet.has(`${x},${y}`);
           const isPickAccess = pickAccessSet.has(`${x},${y}`);
+          const isPicker = pickerKey === `${x},${y}`;
           return (
             <button
               key={`${x}-${y}`}
+              type="button"
+              data-coord={`${x},${y}`}
               title={`${cell.type} (${x},${y})`}
-              className={`cell ${isSelected ? 'selected' : ''} ${inPath ? 'path' : ''} ${isPickAccess ? 'pick-access-path' : ''}`}
+              className={`cell ${isSelected ? 'selected' : ''} ${inPath ? 'path' : ''} ${isPickAccess ? 'pick-access-path' : ''} ${isPicker ? 'picker' : ''}`}
               style={{
                 width: zoom,
                 height: zoom,
-                background: heatmap
-                  ? `rgba(239,68,68,${Math.max(0.06, intensity)})`
-                  : colorByType[cell.type],
+                background: heatmap ? `rgba(239,68,68,${Math.max(0.06, intensity)})` : colorByType[cell.type],
               }}
               onClick={(e) => {
                 if (e.shiftKey) {
@@ -54,7 +77,7 @@ export function GridCanvas({ layout, zoom, onPaint, onSelect, selected, heatmap,
                 }
               }}
             >
-              {cell.type === 'PICK' ? 'P' : ''}
+              {isPicker ? '●' : cell.type === 'PICK' ? 'P' : ''}
             </button>
           );
         }),

@@ -212,10 +212,14 @@ export const simulate = (
     };
   });
 
+  const createdAt = new Date().toISOString();
+
   return {
+    runId: `${Date.now()}`,
+    layoutHash,
     heatmap,
     pallets: results,
     totalSteps: results.reduce((acc, p) => acc + p.steps, 0),
-    createdAt: new Date().toISOString(),
+    createdAt,
   };
 };
