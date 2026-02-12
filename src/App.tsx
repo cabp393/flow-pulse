@@ -39,32 +39,7 @@ export function App() {
           <p>Proyecto único flowpulse (frontend + localStorage).</p>
           <div className="toolbar">
             <button onClick={() => setLayout(createLayout())}>Nuevo layout</button>
-            <button
-              onClick={() => {
-                const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'flowpulse-export.json';
-                a.click();
-                URL.revokeObjectURL(url);
-              }}
-            >
-              Exportar JSON
-            </button>
-            <label className="file-btn">
-              Cargar JSON
-              <input
-                type="file"
-                accept="application/json"
-                onChange={async (e) => {
-                  const f = e.target.files?.[0];
-                  if (!f) return;
-                  const json = JSON.parse(await f.text()) as AppState;
-                  setState(json);
-                }}
-              />
-            </label>
+            <span>Usa las pestañas Layout y SKU para importar/exportar cada maestro por separado.</span>
             <button
               onClick={() => {
                 clearState();
