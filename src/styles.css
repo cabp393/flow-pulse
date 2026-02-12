@@ -71,6 +71,19 @@ button.active {
   box-shadow: inset 0 0 0 2px #3b82f6;
 }
 
+.cell.pick-access-path {
+  box-shadow: inset 0 0 0 2px #22c55e;
+}
+
+
+.results-pallet-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
 .panel {
   border-left: 1px solid #e5e7eb;
   padding-left: 12px;

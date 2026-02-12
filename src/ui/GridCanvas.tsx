@@ -9,6 +9,7 @@ interface Props {
   selected?: Coord;
   heatmap?: number[][];
   path?: Coord[];
+  pickAccessCells?: Coord[];
 }
 
 const colorByType: Record<CellType, string> = {
@@ -19,9 +20,10 @@ const colorByType: Record<CellType, string> = {
   END: '#f87171',
 };
 
-export function GridCanvas({ layout, zoom, onPaint, onSelect, selected, heatmap, path }: Props) {
+export function GridCanvas({ layout, zoom, onPaint, onSelect, selected, heatmap, path, pickAccessCells }: Props) {
   const maxHeat = Math.max(0, ...(heatmap?.flat() ?? [0]));
   const pathSet = new Set((path ?? []).map((c) => `${c.x},${c.y}`));
+  const pickAccessSet = new Set((pickAccessCells ?? []).map((c) => `${c.x},${c.y}`));
 
   return (
     <div className="grid-canvas" style={{ gridTemplateColumns: `repeat(${layout.width}, ${zoom}px)` }}>
@@ -31,11 +33,12 @@ export function GridCanvas({ layout, zoom, onPaint, onSelect, selected, heatmap,
           const intensity = maxHeat ? heat / maxHeat : 0;
           const isSelected = selected?.x === x && selected.y === y;
           const inPath = pathSet.has(`${x},${y}`);
+          const isPickAccess = pickAccessSet.has(`${x},${y}`);
           return (
             <button
               key={`${x}-${y}`}
               title={`${cell.type} (${x},${y})`}
-              className={`cell ${isSelected ? 'selected' : ''} ${inPath ? 'path' : ''}`}
+              className={`cell ${isSelected ? 'selected' : ''} ${inPath ? 'path' : ''} ${isPickAccess ? 'pick-access-path' : ''}`}
               style={{
                 width: zoom,
                 height: zoom,
