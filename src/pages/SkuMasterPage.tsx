@@ -23,8 +23,13 @@ export function SkuMasterPage({ layout, skuMap, setSkuMap }: Props) {
   const inconsistent = Object.entries(skuMap).filter(([, loc]) => !validLocationIds.has(loc));
   const sortedEntries = Object.entries(skuMap).sort(([a], [b]) => a.localeCompare(b));
 
+  const asExcelSafeCsvText = (value: string) => `\t${value}`;
+
   const exportSkuMaster = () => {
-    const rows = ['sku,locationId', ...sortedEntries.map(([sku, locationId]) => `${sku},${locationId}`)];
+    const rows = [
+      'sku,locationId',
+      ...sortedEntries.map(([sku, locationId]) => `${asExcelSafeCsvText(sku)},${asExcelSafeCsvText(locationId)}`),
+    ];
     const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
