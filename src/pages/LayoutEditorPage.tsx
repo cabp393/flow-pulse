@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { CellType, Coord, Layout } from '../models/domain';
 import { defaultMovement } from '../models/defaults';
 import { GridCanvas } from '../ui/GridCanvas';
-import { adjacent, isInside } from '../utils/layout';
+import { adjacent, isInside, resizeLayout } from '../utils/layout';
 import { validateLayout } from '../utils/validation';
 
 interface Props {
@@ -18,7 +18,20 @@ export function LayoutEditorPage({ layout, setLayout }: Props) {
   const [tool, setTool] = useState<CellType>('AISLE');
   const [zoom, setZoom] = useState(28);
   const [selected, setSelected] = useState<Coord>();
+  const [draftWidth, setDraftWidth] = useState(layout.width);
+  const [draftHeight, setDraftHeight] = useState(layout.height);
   const errors = useMemo(() => validateLayout(layout), [layout]);
+
+  useEffect(() => {
+    setDraftWidth(layout.width);
+    setDraftHeight(layout.height);
+  }, [layout.width, layout.height]);
+
+  useEffect(() => {
+    if (!selected) return;
+    if (selected.x < layout.width && selected.y < layout.height) return;
+    setSelected(undefined);
+  }, [layout.width, layout.height, selected]);
 
   const updateCell = (coord: Coord, updater: (current: Layout['grid'][number][number]) => Layout['grid'][number][number]) => {
     const next = structuredClone(layout);
@@ -58,6 +71,15 @@ export function LayoutEditorPage({ layout, setLayout }: Props) {
         ))}
         <button onClick={() => setZoom((z) => Math.max(16, z - 4))}>-</button>
         <button onClick={() => setZoom((z) => Math.min(60, z + 4))}>+</button>
+        <label>
+          Ancho
+          <input type="number" min={1} value={draftWidth} onChange={(e) => setDraftWidth(Number.parseInt(e.target.value, 10) || 1)} />
+        </label>
+        <label>
+          Alto
+          <input type="number" min={1} value={draftHeight} onChange={(e) => setDraftHeight(Number.parseInt(e.target.value, 10) || 1)} />
+        </label>
+        <button onClick={() => setLayout(resizeLayout(layout, draftWidth, draftHeight))}>Aplicar tamaño</button>
         <span>Shift+Click para seleccionar celda</span>
       </div>
 

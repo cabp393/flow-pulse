@@ -1,4 +1,5 @@
 import type { Coord, Layout } from '../models/domain';
+import { createCell } from '../models/defaults';
 
 export const keyOf = ({ x, y }: Coord): string => `${x},${y}`;
 
@@ -24,4 +25,19 @@ export const hashLayout = (layout: Layout): string => {
     hash |= 0;
   }
   return String(hash);
+};
+
+export const resizeLayout = (layout: Layout, width: number, height: number): Layout => {
+  const safeWidth = Math.max(1, Math.floor(width));
+  const safeHeight = Math.max(1, Math.floor(height));
+
+  const nextGrid = Array.from({ length: safeHeight }, (_, y) =>
+    Array.from({ length: safeWidth }, (_, x) => (y < layout.height && x < layout.width ? structuredClone(layout.grid[y][x]) : createCell())),
+  );
+
+  return {
+    width: safeWidth,
+    height: safeHeight,
+    grid: nextGrid,
+  };
 };
