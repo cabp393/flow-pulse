@@ -57,11 +57,12 @@ export function ResultsPage({ layout, run }: Props) {
       </ul>
       {pallet && (
         <div>
-          <h4>Stops pallet {pallet.palletId}</h4>
+          <h4>Detalle de picks pallet {pallet.palletId}</h4>
           <ol>
-            {pallet.stops.map((s, i) => (
-              <li key={`${i}-${s.x}-${s.y}`}>
-                ({s.x},{s.y})
+            {pallet.stopDetails.map((stop) => (
+              <li key={`${stop.order}-${stop.sku}-${stop.locationId}`}>
+                #{stop.order} · SKU <strong>{stop.sku}</strong> · location {stop.locationId} · sequence {stop.sequence} · accessCell ({stop.accessCell.x},
+                {stop.accessCell.y})
               </li>
             ))}
           </ol>

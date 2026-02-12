@@ -41,7 +41,16 @@ export interface PalletResolved {
   palletId: string;
   skus: string[];
   locationIds: string[];
+  picks: { sku: string; locationId: string; sequence: number }[];
   issues: string[];
+}
+
+export interface RunStopDetail {
+  order: number;
+  sku: string;
+  locationId: string;
+  sequence: number;
+  accessCell: Coord;
 }
 
 export interface RunPalletResult {
@@ -49,6 +58,7 @@ export interface RunPalletResult {
   steps: number;
   visited: Coord[];
   stops: Coord[];
+  stopDetails: RunStopDetail[];
   issues: string[];
 }
 

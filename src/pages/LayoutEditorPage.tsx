@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { CellType, Coord, Layout } from '../models/domain';
 import { defaultMovement } from '../models/defaults';
 import { GridCanvas } from '../ui/GridCanvas';
+import { adjacent, isInside } from '../utils/layout';
 import { validateLayout } from '../utils/validation';
 
 interface Props {
@@ -10,6 +11,8 @@ interface Props {
 }
 
 const tools: CellType[] = ['WALL', 'AISLE', 'PICK', 'START', 'END'];
+
+const offsets = [-1, 0, 1];
 
 export function LayoutEditorPage({ layout, setLayout }: Props) {
   const [tool, setTool] = useState<CellType>('AISLE');
@@ -105,16 +108,39 @@ export function LayoutEditorPage({ layout, setLayout }: Props) {
                       }
                     />
                   </label>
-                  <label>
-                    accessCell x,y
-                    <input
-                      value={`${selectedCell.pick?.accessCell.x ?? 0},${selectedCell.pick?.accessCell.y ?? 0}`}
-                      onChange={(e) => {
-                        const [x, y] = e.target.value.split(',').map((v) => Number.parseInt(v.trim(), 10) || 0);
-                        updateCell(selected, (c) => ({ ...c, pick: { ...c.pick!, accessCell: { x, y } } }));
-                      }}
-                    />
-                  </label>
+                  <div>
+                    <p>accessCell (selector 3x3)</p>
+                    <div className="access-selector">
+                      {offsets.map((offsetY) =>
+                        offsets.map((offsetX) => {
+                          const target = { x: selected.x + offsetX, y: selected.y + offsetY };
+                          const inside = isInside(layout, target);
+                          const isCenter = offsetX === 0 && offsetY === 0;
+                          const isAdjacent = adjacent(selected, target);
+                          const cellType = inside ? layout.grid[target.y][target.x].type : undefined;
+                          const walkable = cellType ? ['AISLE', 'START', 'END'].includes(cellType) : false;
+                          const disabled = isCenter || !inside || !isAdjacent || !walkable;
+                          const active =
+                            selectedCell.pick?.accessCell.x === target.x &&
+                            selectedCell.pick?.accessCell.y === target.y;
+
+                          return (
+                            <button
+                              type="button"
+                              key={`${offsetX}-${offsetY}`}
+                              className={`access-cell ${active ? 'active' : ''}`}
+                              disabled={disabled}
+                              onClick={() => updateCell(selected, (c) => ({ ...c, pick: { ...c.pick!, accessCell: target } }))}
+                              title={inside ? `${cellType} (${target.x},${target.y})` : 'Fuera de layout'}
+                            >
+                              {inside ? `${target.x},${target.y}` : '·'}
+                            </button>
+                          );
+                        }),
+                      )}
+                    </div>
+                    <small>Solo se habilitan celdas adyacentes transitables.</small>
+                  </div>
                 </div>
               )}
             </>

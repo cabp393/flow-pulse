@@ -110,7 +110,8 @@ export const resolvePallets = (
 
   grouped.forEach((skus, palletId) => {
     const errors: string[] = [];
-    const locations = new Set<string>();
+    const locationToPick = new Map<string, { sku: string; locationId: string; sequence: number }>();
+
     for (const sku of skus) {
       const location = skuMap[sku];
       if (!location) {
@@ -121,18 +122,20 @@ export const resolvePallets = (
         errors.push(`Location ${location} del SKU ${sku} no existe en layout`);
         continue;
       }
-      locations.add(location);
+      const sequence = pickByLocation.get(location)?.sequence ?? 0;
+      if (!locationToPick.has(location)) {
+        locationToPick.set(location, { sku, locationId: location, sequence });
+      }
     }
 
-    const locationIds = [...locations].sort(
-      (a, b) => (pickByLocation.get(a)?.sequence ?? 0) - (pickByLocation.get(b)?.sequence ?? 0),
-    );
+    const picks = [...locationToPick.values()].sort((a, b) => a.sequence - b.sequence);
+    const locationIds = picks.map((pick) => pick.locationId);
 
     if (errors.length) {
       issues.push(`Pallet ${palletId}: ${errors.join('; ')}`);
     }
 
-    pallets.push({ palletId, skus, locationIds, issues: errors });
+    pallets.push({ palletId, skus, locationIds, picks, issues: errors });
   });
 
   return { pallets, issues };
@@ -161,7 +164,24 @@ export const simulate = (
 
   const results: RunPalletResult[] = pallets.map((pallet) => {
     const issues = [...pallet.issues];
-    const pickStops = pallet.locationIds.map((id) => pickAccess.get(id)).filter(Boolean) as Coord[];
+    const stopDetails: RunPalletResult['stopDetails'] = pallet.picks
+      .map((pick, index) => {
+        const accessCell = pickAccess.get(pick.locationId);
+        if (!accessCell) {
+          issues.push(`Sin accessCell para location ${pick.locationId}`);
+          return undefined;
+        }
+        return {
+          order: index + 1,
+          sku: pick.sku,
+          locationId: pick.locationId,
+          sequence: pick.sequence,
+          accessCell,
+        };
+      })
+      .filter((stop): stop is RunPalletResult['stopDetails'][number] => Boolean(stop));
+
+    const pickStops = stopDetails.map((stop) => stop.accessCell);
     const stops = [start, ...pickStops, end];
     const visited: Coord[] = [];
 
@@ -187,6 +207,7 @@ export const simulate = (
       visited,
       steps: visited.length,
       stops,
+      stopDetails,
       issues,
     };
   });
