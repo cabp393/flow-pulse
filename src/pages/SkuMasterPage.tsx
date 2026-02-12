@@ -21,24 +21,29 @@ export function SkuMasterPage({ layout, skuMap, setSkuMap }: Props) {
   }, [layout]);
 
   const inconsistent = Object.entries(skuMap).filter(([, loc]) => !validLocationIds.has(loc));
+  const sortedEntries = Object.entries(skuMap).sort(([a], [b]) => a.localeCompare(b));
 
   return (
     <div className="page">
       <h2>Maestro SKU</h2>
       <p>Pega CSV con columnas sku,locationId.</p>
       <textarea value={text} onChange={(e) => setText(e.target.value)} rows={8} />
-      <div>
+      <div className="toolbar">
         <button
           onClick={() => {
             try {
-              setSkuMap(parseSkuCsv(text));
+              const imported = parseSkuCsv(text);
+              setSkuMap({ ...skuMap, ...imported });
               setError('');
             } catch (err) {
               setError((err as Error).message);
             }
           }}
         >
-          Importar CSV/Pegado
+          Importar CSV/Pegado (merge)
+        </button>
+        <button onClick={() => setSkuMap({})} disabled={!sortedEntries.length}>
+          Borrar todos
         </button>
       </div>
       {error && <p className="error">{error}</p>}
@@ -54,6 +59,31 @@ export function SkuMasterPage({ layout, skuMap, setSkuMap }: Props) {
             ))}
           </ul>
         </div>
+      )}
+
+      <h3>SKUs cargados</h3>
+      {sortedEntries.length ? (
+        <ul className="sku-list">
+          {sortedEntries.map(([sku, locationId]) => (
+            <li key={sku}>
+              <span>
+                <strong>{sku}</strong> → {locationId}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = { ...skuMap };
+                  delete next[sku];
+                  setSkuMap(next);
+                }}
+              >
+                Borrar
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>No hay SKUs cargados.</p>
       )}
     </div>
   );
