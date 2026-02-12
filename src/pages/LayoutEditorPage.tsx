@@ -61,6 +61,29 @@ export function LayoutEditorPage({ layout, setLayout }: Props) {
 
   const selectedCell = selected ? layout.grid[selected.y][selected.x] : undefined;
 
+  const exportLayout = () => {
+    const blob = new Blob([JSON.stringify(layout, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'flowpulse-layout.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importLayout = async (file?: File) => {
+    if (!file) return;
+    try {
+      const parsed = JSON.parse(await file.text()) as Layout;
+      if (!Array.isArray(parsed.grid) || parsed.grid.length !== parsed.height) throw new Error('JSON de layout inválido.');
+      if (parsed.grid.some((row) => !Array.isArray(row) || row.length !== parsed.width)) throw new Error('JSON de layout inválido.');
+      setLayout(parsed);
+      setSelected(undefined);
+    } catch {
+      alert('No se pudo importar el layout. Verifica que el archivo sea JSON válido.');
+    }
+  };
+
   return (
     <div className="page">
       <div className="toolbar">
@@ -80,6 +103,11 @@ export function LayoutEditorPage({ layout, setLayout }: Props) {
           <input type="number" min={1} value={draftHeight} onChange={(e) => setDraftHeight(Number.parseInt(e.target.value, 10) || 1)} />
         </label>
         <button onClick={() => setLayout(resizeLayout(layout, draftWidth, draftHeight))}>Aplicar tamaño</button>
+        <button onClick={exportLayout}>Exportar layout</button>
+        <label className="file-btn">
+          Importar layout
+          <input type="file" accept="application/json" onChange={(e) => void importLayout(e.target.files?.[0])} />
+        </label>
         <span>Shift+Click para seleccionar celda</span>
       </div>
 

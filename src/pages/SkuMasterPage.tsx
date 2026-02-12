@@ -23,6 +23,28 @@ export function SkuMasterPage({ layout, skuMap, setSkuMap }: Props) {
   const inconsistent = Object.entries(skuMap).filter(([, loc]) => !validLocationIds.has(loc));
   const sortedEntries = Object.entries(skuMap).sort(([a], [b]) => a.localeCompare(b));
 
+  const exportSkuMaster = () => {
+    const rows = ['sku,locationId', ...sortedEntries.map(([sku, locationId]) => `${sku},${locationId}`)];
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'flowpulse-sku-master.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importSkuFile = async (file?: File) => {
+    if (!file) return;
+    try {
+      const imported = parseSkuCsv(await file.text());
+      setSkuMap({ ...skuMap, ...imported });
+      setError('');
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
   return (
     <div className="page">
       <h2>Maestro SKU</h2>
@@ -45,6 +67,13 @@ export function SkuMasterPage({ layout, skuMap, setSkuMap }: Props) {
         <button onClick={() => setSkuMap({})} disabled={!sortedEntries.length}>
           Borrar todos
         </button>
+        <button onClick={exportSkuMaster} disabled={!sortedEntries.length}>
+          Exportar CSV
+        </button>
+        <label className="file-btn">
+          Importar CSV
+          <input type="file" accept=".csv,text/csv" onChange={(e) => void importSkuFile(e.target.files?.[0])} />
+        </label>
       </div>
       {error && <p className="error">{error}</p>}
       <p>Total SKUs: {Object.keys(skuMap).length}</p>
