@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { CellType, Coord, Layout } from '../models/domain';
 import { defaultMovement } from '../models/defaults';
-import { LayoutValidationModal } from '../layout/LayoutValidationModal';
 import { useLayoutDraft } from '../layout/useLayoutDraft';
 import { validateLayout } from '../layout/validateLayout';
 import { GridCanvas } from '../ui/GridCanvas';
@@ -30,13 +29,11 @@ const syncLayoutMetadata = (layout: Layout): Layout => {
 
 export function LayoutEditorPage({ layout, setLayout, onEditorStateChange }: Props) {
   const [tool, setTool] = useState<CellType>('AISLE');
-  const [zoom, setZoom] = useState(25);
+  const [zoom, setZoom] = useState(17);
   const [selected, setSelected] = useState<Coord>();
-  const [focusCoord, setFocusCoord] = useState<Coord>();
   const [draftWidth, setDraftWidth] = useState(layout?.width ?? 1);
   const [draftHeight, setDraftHeight] = useState(layout?.height ?? 1);
   const [toastMessage, setToastMessage] = useState<string>();
-  const [showValidationModal, setShowValidationModal] = useState(false);
   const [showValidationDetails, setShowValidationDetails] = useState(false);
   const [validationAttempted, setValidationAttempted] = useState(false);
 
@@ -49,10 +46,6 @@ export function LayoutEditorPage({ layout, setLayout, onEditorStateChange }: Pro
   } = useLayoutDraft(layout);
 
   const validation = useMemo(() => (draft ? validateLayout(draft) : { errors: [], warnings: [] }), [draft]);
-  const issueCells = useMemo(
-    () => validation.errors.concat(validation.warnings).flatMap((issue) => (issue.cell ? [issue.cell] : [])),
-    [validation.errors, validation.warnings],
-  );
 
   useEffect(() => {
     if (!draft) return;
@@ -63,7 +56,6 @@ export function LayoutEditorPage({ layout, setLayout, onEditorStateChange }: Pro
   useEffect(() => {
     if (!isDirty) {
       setValidationAttempted(false);
-      setShowValidationModal(false);
       setShowValidationDetails(false);
     }
   }, [isDirty]);
@@ -75,17 +67,13 @@ export function LayoutEditorPage({ layout, setLayout, onEditorStateChange }: Pro
     const committed = commitDraft();
     if (!committed) return false;
     setLayout(syncLayoutMetadata(committed));
-    const totalIssues = validation.errors.length + validation.warnings.length;
-    setShowValidationModal(totalIssues > 0);
-    setShowValidationDetails(false);
-    setToastMessage(totalIssues > 0 ? 'Layout guardado con issues pendientes.' : 'Layout guardado.');
+    setToastMessage('Layout guardado correctamente.');
     window.setTimeout(() => setToastMessage(undefined), 2200);
     return true;
   };
 
   const discardLayoutChanges = () => {
     discardChanges();
-    setShowValidationModal(false);
     setShowValidationDetails(false);
     setValidationAttempted(false);
   };
@@ -135,8 +123,9 @@ export function LayoutEditorPage({ layout, setLayout, onEditorStateChange }: Pro
         <button onClick={() => updateDraft((current) => syncLayoutMetadata(resizeLayout(current, draftWidth, draftHeight)))}>Aplicar tamaño</button>
 
         <button onClick={saveLayout}>Guardar layout</button>
-        <button onClick={discardLayoutChanges}>Descartar cambios</button>
-        <button onClick={discardLayoutChanges}>Revertir a último guardado</button>
+        <button onClick={() => setShowValidationDetails((current) => !current)}>
+          {showValidationDetails ? 'Ocultar detalle de issues' : 'Ver detalle de issues'}
+        </button>
 
         {isDirty && <span className="status-badge dirty">Cambios sin guardar</span>}
         {isDirty && !validationAttempted && <span className="status-badge pending">Validación pendiente</span>}
@@ -153,8 +142,7 @@ export function LayoutEditorPage({ layout, setLayout, onEditorStateChange }: Pro
           onPaint={paint}
           onSelect={setSelected}
           selected={selected}
-          focusCoord={focusCoord}
-          highlightedCells={showValidationDetails ? issueCells : []}
+          highlightedCells={[]}
         />
         <aside className="panel">
           {selected && selectedCell ? (
@@ -176,22 +164,22 @@ export function LayoutEditorPage({ layout, setLayout, onEditorStateChange }: Pro
           ) : <p>Selecciona una celda para editar propiedades.</p>}
         </aside>
       </div>
-
-      <LayoutValidationModal
-        open={showValidationModal}
-        errors={validation.errors}
-        warnings={validation.warnings}
-        showDetails={showValidationDetails}
-        onClose={() => {
-          setShowValidationModal(false);
-          setShowValidationDetails(false);
-        }}
-        onViewDetails={() => setShowValidationDetails(true)}
-        onGoToCell={(cell) => {
-          setSelected(cell);
-          setFocusCoord(cell);
-        }}
-      />
+      {showValidationDetails && (
+        <section className="panel">
+          <h3>Detalle de errores y advertencias</h3>
+          {!validation.errors.length && !validation.warnings.length && <p>Sin issues.</p>}
+          {validation.errors.map((issue) => (
+            <p key={`error-${issue.message}-${issue.cell?.x ?? 'na'}-${issue.cell?.y ?? 'na'}`}>
+              ERROR: {issue.message} {issue.cell ? `(${issue.cell.x}, ${issue.cell.y})` : '(sin coordenada)'}
+            </p>
+          ))}
+          {validation.warnings.map((issue) => (
+            <p key={`warning-${issue.message}-${issue.cell?.x ?? 'na'}-${issue.cell?.y ?? 'na'}`}>
+              ADVERTENCIA: {issue.message} {issue.cell ? `(${issue.cell.x}, ${issue.cell.y})` : '(sin coordenada)'}
+            </p>
+          ))}
+        </section>
+      )}
     </div>
   );
 }
