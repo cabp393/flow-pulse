@@ -1,7 +1,11 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { PlayerCompare } from '../components/PlayerCompare';
 import type { Layout, PlayerComparePreferences, RunResult } from '../models/domain';
-import { usePlayerEngine } from './usePlayerEngine';
+import { buildRunPath, hasSamePalletList } from './playerCompareUtils';
+
+const MIN_SPEED_MS = 40;
+
+type PlaybackStatus = 'stopped' | 'playing' | 'paused' | 'finished';
 
 export function PlayerComparePage({
   layouts,
@@ -14,119 +18,118 @@ export function PlayerComparePage({
   prefs: PlayerComparePreferences;
   onChangePrefs: (prefs: PlayerComparePreferences) => void;
 }) {
-  const getPalletIdAt = (run: RunResult | undefined, palletIndex: number): string | undefined => run?.palletOrder[palletIndex];
+  const [status, setStatus] = useState<PlaybackStatus>('stopped');
+  const [stepIndex, setStepIndex] = useState(0);
 
-  const isPlayableAt = (palletIndex: number): boolean => {
-    const palletIdA = getPalletIdAt(runA, palletIndex);
-    const palletIdB = getPalletIdAt(runB, palletIndex);
-    return isPlayablePallet(runA, palletIdA) || isPlayablePallet(runB, palletIdB);
-  };
+  const runA = useMemo(() => runs.find((run) => run.runId === prefs.runAId), [prefs.runAId, runs]);
+  const runB = useMemo(() => runs.find((run) => run.runId === prefs.runBId), [prefs.runBId, runs]);
+  const layoutA = useMemo(() => layouts.find((layout) => layout.layoutId === runA?.layoutId), [layouts, runA?.layoutId]);
+  const layoutB = useMemo(() => layouts.find((layout) => layout.layoutId === runB?.layoutId), [layouts, runB?.layoutId]);
 
-  const findNextPlayableIndex = (fromIndex: number): number | undefined => {
-    const maxIndex = Math.max(0, palletCount - 1);
-    for (let next = fromIndex + 1; next <= maxIndex; next += 1) {
-      if (isPlayableAt(next)) return next;
+  const samePalletList = hasSamePalletList(runA, runB);
+  const canPlay = Boolean(runA && runB && layoutA && layoutB && samePalletList);
+
+  const palletOrder = runA?.palletOrder ?? runB?.palletOrder ?? [];
+  const palletCount = palletOrder.length;
+  const safePalletIndex = Math.max(0, Math.min(prefs.palletIndex, Math.max(palletCount - 1, 0)));
+  const activePalletId = palletOrder[safePalletIndex];
+
+  const pathA = useMemo(() => {
+    if (!runA || !layoutA || !activePalletId) return [];
+    return buildRunPath(layoutA, runA, activePalletId);
+  }, [activePalletId, layoutA, runA]);
+
+  const pathB = useMemo(() => {
+    if (!runB || !layoutB || !activePalletId) return [];
+    return buildRunPath(layoutB, runB, activePalletId);
+  }, [activePalletId, layoutB, runB]);
+
+  const maxStep = Math.max(pathA.length - 1, pathB.length - 1, 0);
+
+  useEffect(() => {
+    if (prefs.palletIndex !== safePalletIndex) {
+      onChangePrefs({ ...prefs, palletIndex: safePalletIndex });
     }
-    return undefined;
+  }, [onChangePrefs, prefs, safePalletIndex]);
+
+  useEffect(() => {
+    setStepIndex((current) => Math.min(current, maxStep));
+  }, [maxStep]);
+
+  useEffect(() => {
+    if (status !== 'playing' || !canPlay) return;
+
+    const interval = window.setInterval(() => {
+      setStepIndex((currentStep) => {
+        if (currentStep < maxStep) return currentStep + 1;
+
+        if (prefs.autoContinue && safePalletIndex < palletCount - 1) {
+          onChangePrefs({ ...prefs, palletIndex: safePalletIndex + 1 });
+          return 0;
+        }
+
+        setStatus('finished');
+        return currentStep;
+      });
+    }, Math.max(MIN_SPEED_MS, prefs.speedMs));
+
+    return () => window.clearInterval(interval);
+  }, [canPlay, maxStep, onChangePrefs, palletCount, prefs, safePalletIndex, status]);
+
+  const selectPallet = (nextIndex: number) => {
+    const clamped = Math.max(0, Math.min(nextIndex, Math.max(palletCount - 1, 0)));
+    onChangePrefs({ ...prefs, palletIndex: clamped });
+    setStepIndex(0);
+    setStatus('stopped');
   };
 
-  const isPlayablePallet = (run: RunResult | undefined, palletId: string | undefined): boolean => {
-    if (!run || !palletId) return false;
-    const pallet = run.palletResults.find((item) => item.palletId === palletId);
-    if (!pallet) return false;
-    return pallet.hasPath && pallet.stops.length > 0;
-  };
-
-  const getPalletSteps = (run: RunResult | undefined, palletId: string | undefined): number => {
-    if (!run || !palletId) return 0;
-    return run.palletResults.find((item) => item.palletId === palletId)?.steps ?? 0;
-  };
-
-  const runA = useMemo(() => runs.find((r) => r.runId === prefs.runAId), [prefs.runAId, runs]);
-  const runB = useMemo(() => runs.find((r) => r.runId === prefs.runBId), [prefs.runBId, runs]);
-  const compatible = !runA || !runB || runA.layoutId === runB.layoutId;
-  const layout = layouts.find((item) => item.layoutId === (runA?.layoutId ?? runB?.layoutId));
-
-  const palletCount = Math.max(runA?.palletOrder.length ?? 0, runB?.palletOrder.length ?? 0);
-  const getMaxStepForIndex = (palletIndex: number): number => {
-    const palletIdA = runA?.palletOrder[palletIndex];
-    const palletIdB = runB?.palletOrder[palletIndex];
-    const stepsA = isPlayablePallet(runA, palletIdA) ? getPalletSteps(runA, palletIdA) : 0;
-    const stepsB = isPlayablePallet(runB, palletIdB) ? getPalletSteps(runB, palletIdB) : 0;
-    return Math.max(stepsA, stepsB, 0);
-  };
-  const maxStep = getMaxStepForIndex(prefs.palletIndex);
-
-  const engine = usePlayerEngine({
-    maxStep,
-    maxPallet: Math.max(0, palletCount - 1),
-    initialPalletIndex: prefs.palletIndex,
-    initialSpeedMs: prefs.speedMs,
-    autoContinue: prefs.autoContinue,
-  });
-
-  useEffect(() => {
-    if (prefs.palletIndex !== engine.state.palletIndex) {
-      engine.setPalletIndex(prefs.palletIndex);
-    }
-  }, [engine.state.palletIndex, prefs.palletIndex]);
-
-  useEffect(() => {
-    engine.setSpeedMs(prefs.speedMs);
-  }, [prefs.speedMs]);
-
-  const engineMaxStep = getMaxStepForIndex(engine.state.palletIndex);
-
-  useEffect(() => {
-    engine.setMaxStep(engineMaxStep);
-  }, [engineMaxStep]);
-
-  useEffect(() => {
-    if (engine.state.status !== 'playing') return;
-    if (isPlayableAt(engine.state.palletIndex)) return;
-
-    const nextPlayable = findNextPlayableIndex(engine.state.palletIndex);
-    if (nextPlayable !== undefined) {
-      engine.setPalletIndex(nextPlayable);
-      engine.play();
-      return;
-    }
-    engine.stop();
-  }, [engine, engine.state.palletIndex, engine.state.status, palletCount, runA, runB]);
-
-  useEffect(() => {
-    if (engine.state.palletIndex !== prefs.palletIndex) {
-      onChangePrefs({ ...prefs, palletIndex: engine.state.palletIndex });
-    }
-  }, [engine.state.palletIndex, onChangePrefs, prefs]);
-
-  const missingRun = Boolean((prefs.runAId && !runA) || (prefs.runBId && !runB));
+  const nextStep = () => setStepIndex((current) => Math.min(current + 1, maxStep));
+  const prevStep = () => setStepIndex((current) => Math.max(current - 1, 0));
 
   return (
     <div className="page">
-      <h2>Player comparativo</h2>
+      <h2>Player comparativo de runs</h2>
+      <p>Compara runs con layouts/SKU masters diferentes, siempre que usen el mismo listado de pallets.</p>
       <div className="compare-grid-wrap">
-        <label>Run A<select value={prefs.runAId ?? ''} onChange={(e) => onChangePrefs({ ...prefs, runAId: e.target.value || undefined, palletIndex: 0 })}><option value="">--</option>{runs.map((run) => <option key={run.runId} value={run.runId}>{run.name}</option>)}</select></label>
-        <label>Run B<select value={prefs.runBId ?? ''} onChange={(e) => onChangePrefs({ ...prefs, runBId: e.target.value || undefined, palletIndex: 0 })}><option value="">--</option>{runs.map((run) => <option key={run.runId} value={run.runId}>{run.name}</option>)}</select></label>
+        <label>Run A<select value={prefs.runAId ?? ''} onChange={(event) => onChangePrefs({ ...prefs, runAId: event.target.value || undefined, palletIndex: 0 })}><option value="">--</option>{runs.map((run) => <option key={run.runId} value={run.runId}>{run.name}</option>)}</select></label>
+        <label>Run B<select value={prefs.runBId ?? ''} onChange={(event) => onChangePrefs({ ...prefs, runBId: event.target.value || undefined, palletIndex: 0 })}><option value="">--</option>{runs.map((run) => <option key={run.runId} value={run.runId}>{run.name}</option>)}</select></label>
       </div>
-      {missingRun && <p className="error">Run inexistente.</p>}
-      {!layout && (runA || runB) && <p className="error">Layout inexistente.</p>}
-      {!compatible && <p className="error">Los runs deben compartir layoutId para reproducir.</p>}
-      {((runA && !runA.palletOrder.length) || (runB && !runB.palletOrder.length)) && <p className="error">palletOrder vacío.</p>}
+
+      {!samePalletList && <p className="error">No se puede reproducir: ambos runs deben tener el mismo palletOrder.</p>}
+      {(runA && !layoutA) || (runB && !layoutB) ? <p className="error">No se encontró el layout de uno de los runs seleccionados.</p> : null}
+
       <div className="player-controls">
-        <button disabled={!compatible || !layout || missingRun} onClick={engine.play}>Play</button>
-        <button onClick={engine.pause}>Pause</button>
-        <button onClick={engine.stop}>Stop</button>
-        <button onClick={engine.prevPallet}>Prev pallet</button>
-        <button onClick={engine.nextPallet}>Next pallet</button>
-        <button onClick={() => engine.setPalletIndex(0)}>Pallet 1</button>
-        <button onClick={engine.prevStep}>Prev step</button>
-        <button onClick={engine.nextStep}>Next step</button>
-        <label>Velocidad(ms)<input type="number" value={prefs.speedMs} min={40} onChange={(e) => onChangePrefs({ ...prefs, speedMs: Number(e.target.value) || 40 })} /></label>
-        <label><input type="checkbox" checked={prefs.autoContinue} onChange={(e) => onChangePrefs({ ...prefs, autoContinue: e.target.checked })} /> autoContinue</label>
+        <button disabled={!canPlay} onClick={() => setStatus('playing')}>Play</button>
+        <button onClick={() => setStatus('paused')}>Pause</button>
+        <button onClick={() => { setStatus('stopped'); setStepIndex(0); }}>Stop</button>
+        <button disabled={!palletCount} onClick={() => selectPallet(safePalletIndex - 1)}>Prev pallet</button>
+        <button disabled={!palletCount} onClick={() => selectPallet(safePalletIndex + 1)}>Next pallet</button>
+        <button onClick={prevStep}>Prev step</button>
+        <button onClick={nextStep}>Next step</button>
+        <label>
+          Velocidad (ms)
+          <input
+            type="number"
+            min={MIN_SPEED_MS}
+            value={prefs.speedMs}
+            onChange={(event) => onChangePrefs({ ...prefs, speedMs: Math.max(MIN_SPEED_MS, Number(event.target.value) || MIN_SPEED_MS) })}
+          />
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={prefs.autoContinue}
+            onChange={(event) => onChangePrefs({ ...prefs, autoContinue: event.target.checked })}
+          />
+          Auto-continuar pallet
+        </label>
       </div>
-      <p>Pallet: {engine.state.palletIndex + 1}/{Math.max(palletCount, 1)} · Step: {engine.state.stepIndex}</p>
-      {layout && <PlayerCompare layout={layout} runA={runA} runB={runB} palletIndex={engine.state.palletIndex} stepIndex={engine.state.stepIndex} onlyPlayable />}
+
+      <p>
+        Estado: {status} · Pallet {palletCount ? safePalletIndex + 1 : 0}/{Math.max(palletCount, 1)} · ID: {activePalletId ?? '-'} · Step {stepIndex}/{maxStep}
+      </p>
+
+      <PlayerCompare runA={runA} runB={runB} layoutA={layoutA} layoutB={layoutB} palletId={activePalletId} stepIndex={stepIndex} />
     </div>
   );
 }
