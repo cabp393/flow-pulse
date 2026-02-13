@@ -8,6 +8,8 @@ interface Props {
   onPaint: (coord: Coord) => void;
   onSelect: (coord: Coord) => void;
   selected?: Coord;
+  focusCoord?: Coord;
+  highlightedCells?: Coord[];
   heatmap?: number[][];
   path?: Coord[];
   pickAccessCells?: Coord[];
@@ -29,6 +31,8 @@ export function GridCanvas({
   onPaint,
   onSelect,
   selected,
+  focusCoord,
+  highlightedCells,
   heatmap,
   path,
   pickAccessCells,
@@ -38,6 +42,7 @@ export function GridCanvas({
   const maxHeat = Math.max(0, ...(heatmap?.flat() ?? [0]));
   const pathSet = useMemo(() => new Set((path ?? []).map((c) => `${c.x},${c.y}`)), [path]);
   const pickAccessSet = useMemo(() => new Set((pickAccessCells ?? []).map((c) => `${c.x},${c.y}`)), [pickAccessCells]);
+  const highlightSet = useMemo(() => new Set((highlightedCells ?? []).map((c) => `${c.x},${c.y}`)), [highlightedCells]);
   const pickerKey = pickerPosition ? `${pickerPosition.x},${pickerPosition.y}` : '';
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -46,6 +51,12 @@ export function GridCanvas({
     const target = rootRef.current.querySelector<HTMLButtonElement>(`button[data-coord="${pickerKey}"]`);
     target?.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
   }, [followCamera, pickerKey, pickerPosition]);
+
+  useEffect(() => {
+    if (!focusCoord || !rootRef.current) return;
+    const target = rootRef.current.querySelector<HTMLButtonElement>(`button[data-coord="${focusCoord.x},${focusCoord.y}"]`);
+    target?.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
+  }, [focusCoord]);
 
   return (
     <div ref={rootRef} className="grid-canvas" style={{ gridTemplateColumns: `repeat(${layout.width}, ${zoom}px)` }}>
@@ -57,13 +68,14 @@ export function GridCanvas({
           const inPath = pathSet.has(`${x},${y}`);
           const isPickAccess = pickAccessSet.has(`${x},${y}`);
           const isPicker = pickerKey === `${x},${y}`;
+          const hasIssue = highlightSet.has(`${x},${y}`);
           return (
             <button
               key={`${x}-${y}`}
               type="button"
               data-coord={`${x},${y}`}
               title={`${cell.type} (${x},${y})`}
-              className={`cell ${isSelected ? 'selected' : ''} ${inPath ? 'path' : ''} ${isPickAccess ? 'pick-access-path' : ''} ${isPicker ? 'picker' : ''}`}
+              className={`cell ${isSelected ? 'selected' : ''} ${inPath ? 'path' : ''} ${isPickAccess ? 'pick-access-path' : ''} ${isPicker ? 'picker' : ''} ${hasIssue ? 'issue' : ''}`}
               style={{
                 width: zoom,
                 height: zoom,

@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { CellType, Coord, Layout } from '../models/domain';
 import { defaultMovement } from '../models/defaults';
+import { LayoutValidationModal } from '../layout/LayoutValidationModal';
+import { useLayoutDraft } from '../layout/useLayoutDraft';
+import { validateLayout } from '../layout/validateLayout';
 import { GridCanvas } from '../ui/GridCanvas';
 import { adjacent, isInside, resizeLayout } from '../utils/layout';
-import { validateLayout } from '../utils/validation';
 
 interface Props {
   layout?: Layout;
   setLayout: (layout: Layout) => void;
+  onEditorStateChange: (state: { isDirty: boolean; save: () => boolean; discard: () => void }) => void;
 }
 
 const tools: CellType[] = ['WALL', 'AISLE', 'PICK', 'START', 'END'];
@@ -25,47 +28,100 @@ const syncLayoutMetadata = (layout: Layout): Layout => {
   return { ...layout, startCell, endCell };
 };
 
-export function LayoutEditorPage({ layout, setLayout }: Props) {
+export function LayoutEditorPage({ layout, setLayout, onEditorStateChange }: Props) {
   const [tool, setTool] = useState<CellType>('AISLE');
   const [zoom, setZoom] = useState(25);
   const [selected, setSelected] = useState<Coord>();
+  const [focusCoord, setFocusCoord] = useState<Coord>();
   const [draftWidth, setDraftWidth] = useState(layout?.width ?? 1);
   const [draftHeight, setDraftHeight] = useState(layout?.height ?? 1);
-  const errors = useMemo(() => (layout ? validateLayout(layout) : []), [layout]);
+  const [toastMessage, setToastMessage] = useState<string>();
+  const [showValidationModal, setShowValidationModal] = useState(false);
+  const [validationAttempted, setValidationAttempted] = useState(false);
+
+  const {
+    draft,
+    isDirty,
+    discardChanges,
+    commitDraft,
+    updateDraft,
+  } = useLayoutDraft(layout);
+
+  const validation = useMemo(() => (draft ? validateLayout(draft) : { errors: [], warnings: [] }), [draft]);
+  const issueCells = useMemo(
+    () => validation.errors.concat(validation.warnings).flatMap((issue) => (issue.cell ? [issue.cell] : [])),
+    [validation.errors, validation.warnings],
+  );
 
   useEffect(() => {
-    if (!layout) return;
-    setDraftWidth(layout.width);
-    setDraftHeight(layout.height);
-  }, [layout]);
+    if (!draft) return;
+    setDraftWidth(draft.width);
+    setDraftHeight(draft.height);
+  }, [draft?.layoutId, draft?.height, draft?.width]);
 
-  if (!layout) return <div className="page"><p>Seleccione un layout para editar.</p></div>;
+  useEffect(() => {
+    if (!isDirty) {
+      setValidationAttempted(false);
+      setShowValidationModal(false);
+    }
+  }, [isDirty]);
+
+  const saveLayout = () => {
+    if (!draft) return false;
+    setValidationAttempted(true);
+    if (validation.errors.length > 0) {
+      setShowValidationModal(true);
+      return false;
+    }
+
+    const committed = commitDraft();
+    if (!committed) return false;
+    setLayout(syncLayoutMetadata(committed));
+    setShowValidationModal(false);
+    setToastMessage('Layout guardado.');
+    window.setTimeout(() => setToastMessage(undefined), 2200);
+    return true;
+  };
+
+  const discardLayoutChanges = () => {
+    discardChanges();
+    setShowValidationModal(false);
+    setValidationAttempted(false);
+  };
+
+  useEffect(() => {
+    onEditorStateChange({ isDirty, save: saveLayout, discard: discardLayoutChanges });
+  }, [isDirty, onEditorStateChange, saveLayout]);
+
+  if (!draft) return <div className="page"><p>Seleccione un layout para editar.</p></div>;
 
   const updateCell = (coord: Coord, updater: (current: Layout['gridData'][number][number]) => Layout['gridData'][number][number]) => {
-    const next = structuredClone(layout);
-    next.gridData[coord.y][coord.x] = updater(next.gridData[coord.y][coord.x]);
-    setLayout(syncLayoutMetadata(next));
+    updateDraft((next) => {
+      next.gridData[coord.y][coord.x] = updater(next.gridData[coord.y][coord.x]);
+      return syncLayoutMetadata(next);
+    });
   };
 
   const paint = (coord: Coord) => {
-    const next = structuredClone(layout);
-    const cell = next.gridData[coord.y][coord.x];
-    cell.type = tool;
-    if (tool === 'AISLE') cell.movement = cell.movement ?? defaultMovement();
-    if (tool === 'START' || tool === 'END') {
-      for (let y = 0; y < next.height; y += 1) {
-        for (let x = 0; x < next.width; x += 1) {
-          if (next.gridData[y][x].type === tool && (x !== coord.x || y !== coord.y)) next.gridData[y][x].type = 'AISLE';
+    updateDraft((next) => {
+      const cell = next.gridData[coord.y][coord.x];
+      cell.type = tool;
+      if (tool === 'AISLE') cell.movement = cell.movement ?? defaultMovement();
+      if (tool === 'START' || tool === 'END') {
+        for (let y = 0; y < next.height; y += 1) {
+          for (let x = 0; x < next.width; x += 1) {
+            if (next.gridData[y][x].type === tool && (x !== coord.x || y !== coord.y)) next.gridData[y][x].type = 'AISLE';
+          }
         }
       }
-    }
-    if (tool !== 'PICK') cell.pick = undefined;
-    if (tool === 'PICK' && !cell.pick) cell.pick = { locationId: '', accessCell: coord };
-    if (tool === 'WALL') cell.movement = undefined;
-    setLayout(syncLayoutMetadata(next));
+      if (tool !== 'PICK') cell.pick = undefined;
+      if (tool === 'PICK' && !cell.pick) cell.pick = { locationId: '', accessCell: coord };
+      if (tool === 'WALL') cell.movement = undefined;
+      return syncLayoutMetadata(next);
+    });
   };
 
-  const selectedCell = selected ? layout.gridData[selected.y][selected.x] : undefined;
+  const selectedCell = selected ? draft.gridData[selected.y][selected.x] : undefined;
 
   return (
     <div className="page">
@@ -75,11 +131,30 @@ export function LayoutEditorPage({ layout, setLayout }: Props) {
         <button onClick={() => setZoom((z) => Math.min(60, z + 4))}>+</button>
         <label>Ancho<input type="number" min={1} value={draftWidth} onChange={(e) => setDraftWidth(Number.parseInt(e.target.value, 10) || 1)} /></label>
         <label>Alto<input type="number" min={1} value={draftHeight} onChange={(e) => setDraftHeight(Number.parseInt(e.target.value, 10) || 1)} /></label>
-        <button onClick={() => setLayout(syncLayoutMetadata(resizeLayout(layout, draftWidth, draftHeight)))}>Aplicar tamaño</button>
+        <button onClick={() => updateDraft((current) => syncLayoutMetadata(resizeLayout(current, draftWidth, draftHeight)))}>Aplicar tamaño</button>
+
+        <button onClick={saveLayout}>Guardar layout</button>
+        <button onClick={discardLayoutChanges}>Descartar cambios</button>
+        <button onClick={discardLayoutChanges}>Revertir a último guardado</button>
+
+        {isDirty && <span className="status-badge dirty">Cambios sin guardar</span>}
+        {isDirty && !validationAttempted && <span className="status-badge pending">Validación pendiente</span>}
+        {isDirty && <span className="status-badge">Issues pendientes: {validation.errors.length + validation.warnings.length}</span>}
       </div>
 
+      {toastMessage && <p className="toast-success">{toastMessage}</p>}
+
       <div className="layout-content">
-        <GridCanvas layout={layout} zoom={zoom} selectedTool={tool} onPaint={paint} onSelect={setSelected} selected={selected} />
+        <GridCanvas
+          layout={draft}
+          zoom={zoom}
+          selectedTool={tool}
+          onPaint={paint}
+          onSelect={setSelected}
+          selected={selected}
+          focusCoord={focusCoord}
+          highlightedCells={showValidationModal ? issueCells : []}
+        />
         <aside className="panel">
           {selected && selectedCell ? (
             <>
@@ -87,10 +162,10 @@ export function LayoutEditorPage({ layout, setLayout }: Props) {
               {selectedCell.type === 'AISLE' && <div className="form-grid">{(['allowUp', 'allowDown', 'allowLeft', 'allowRight'] as const).map((k) => <label key={k}><input type="checkbox" checked={selectedCell.movement?.[k] ?? false} onChange={(e) => updateCell(selected, (c) => ({ ...c, movement: { ...(c.movement ?? defaultMovement()), [k]: e.target.checked } }))} />{k}</label>)}</div>}
               {selectedCell.type === 'PICK' && <div className="form-grid"><label>locationId<input value={selectedCell.pick?.locationId ?? ''} onChange={(e) => updateCell(selected, (c) => ({ ...c, pick: { ...c.pick!, locationId: e.target.value } }))} /></label><div><p>accessCell (selector 3x3)</p><div className="access-selector">{offsets.map((offsetY) => offsets.map((offsetX) => {
                 const target = { x: selected.x + offsetX, y: selected.y + offsetY };
-                const inside = isInside(layout, target);
+                const inside = isInside(draft, target);
                 const isCenter = offsetX === 0 && offsetY === 0;
                 const isAdjacent = adjacent(selected, target);
-                const cellType = inside ? layout.gridData[target.y][target.x].type : undefined;
+                const cellType = inside ? draft.gridData[target.y][target.x].type : undefined;
                 const walkable = cellType ? ['AISLE', 'START', 'END'].includes(cellType) : false;
                 const disabled = isCenter || !inside || !isAdjacent || !walkable;
                 const active = selectedCell.pick?.accessCell.x === target.x && selectedCell.pick?.accessCell.y === target.y;
@@ -98,11 +173,19 @@ export function LayoutEditorPage({ layout, setLayout }: Props) {
               }))}</div></div></div>}
             </>
           ) : <p>Selecciona una celda para editar propiedades.</p>}
-
-          <h4>Validaciones</h4>
-          {errors.length ? <ul>{errors.map((e) => <li key={e}>{e}</li>)}</ul> : <p>Layout válido.</p>}
         </aside>
       </div>
+
+      <LayoutValidationModal
+        open={showValidationModal}
+        errors={validation.errors}
+        warnings={validation.warnings}
+        onClose={() => setShowValidationModal(false)}
+        onGoToCell={(cell) => {
+          setSelected(cell);
+          setFocusCoord(cell);
+        }}
+      />
     </div>
   );
 }

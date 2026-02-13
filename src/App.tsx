@@ -27,9 +27,24 @@ export function App() {
   const [compareRunAId, setCompareRunAId] = useState<string>();
   const [compareRunBId, setCompareRunBId] = useState<string>();
   const [playerComparePrefs, setPlayerComparePrefs] = useState<PlayerComparePreferences>(() => loadPlayerComparePreferences());
+  const [layoutEditorState, setLayoutEditorState] = useState<{ isDirty: boolean; save: () => boolean; discard: () => void }>({
+    isDirty: false,
+    save: () => true,
+    discard: () => {},
+  });
 
   useEffect(() => saveState(state), [state]);
   useEffect(() => savePlayerComparePreferences(playerComparePrefs), [playerComparePrefs]);
+  useEffect(() => {
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (tab === 'layout-editor' && layoutEditorState.isDirty) {
+        event.preventDefault();
+        event.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [layoutEditorState.isDirty, tab]);
 
   const activeLayout = useMemo(
     () => state.layouts.find((layout) => layout.layoutId === state.activeLayoutId) ?? state.layouts[0],
@@ -39,6 +54,19 @@ export function App() {
   const setLayout = (layout: Layout) => setState((s) => ({ ...s, layouts: updateLayout(s.layouts, layout) }));
 
   const navigateTab = (next: Tab) => {
+    if (tab === 'layout-editor' && next !== 'layout-editor' && layoutEditorState.isDirty) {
+      const choice = window.prompt('Hay cambios sin guardar. Escribe: guardar | descartar | cancelar', 'guardar');
+      const normalized = choice?.trim().toLowerCase();
+      if (normalized === 'guardar') {
+        const saved = layoutEditorState.save();
+        if (!saved) return;
+      } else if (normalized === 'descartar' || normalized === 'revertir') {
+        layoutEditorState.discard();
+      } else {
+        return;
+      }
+    }
+
     setTab(next);
     window.history.pushState({}, '', next === 'home' ? '/' : `/${next}`);
   };
@@ -66,7 +94,7 @@ export function App() {
         const nextLayouts = removeLayout(s.layouts, layoutId);
         return { ...s, layouts: nextLayouts, activeLayoutId: nextLayouts.some((l) => l.layoutId === s.activeLayoutId) ? s.activeLayoutId : nextLayouts[0]?.layoutId };
       })} />}
-      {tab === 'layout-editor' && <LayoutEditorPage layout={activeLayout} setLayout={setLayout} />}
+      {tab === 'layout-editor' && <LayoutEditorPage layout={activeLayout} setLayout={setLayout} onEditorStateChange={setLayoutEditorState} />}
       {tab === 'sku' && activeLayout && <SkuMasterPage layout={activeLayout} masters={state.skuMasters} activeSkuMasterId={state.activeSkuMasterId} onChange={(skuMasters, activeSkuMasterId) => setState((s) => ({ ...s, skuMasters, activeSkuMasterId }))} />}
       {tab === 'pallets' && <PalletImportPage layouts={state.layouts} activeLayoutId={activeLayout?.layoutId} masters={state.skuMasters} activeSkuMasterId={state.activeSkuMasterId} onGeneratedRun={(run) => setState((s) => ({ ...s, runs: insertRun(s.runs, run) }))} onSelectLayout={(layoutId) => setState((s) => ({ ...s, activeLayoutId: layoutId }))} />}
       {tab === 'results' && <ResultsPage layouts={state.layouts} runs={state.runs} masters={state.skuMasters} onDeleteRun={(runId) => setState((s) => ({ ...s, runs: removeRun(s.runs, runId) }))} />}
