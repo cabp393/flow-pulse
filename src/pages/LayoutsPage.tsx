@@ -12,6 +12,7 @@ interface Props {
   onDelete: (layoutId: string) => void;
   onSelect: (layoutId: string) => void;
   onExport: () => void;
+  onExportOne: (layoutId: string) => void;
   onImport: (jsonPayload: string) => void;
 }
 
@@ -25,6 +26,7 @@ export function LayoutsPage({
   onDelete,
   onSelect,
   onExport,
+  onExportOne,
   onImport,
 }: Props) {
   const maxLayouts = getMaxLayouts();
@@ -71,9 +73,10 @@ export function LayoutsPage({
         {layouts.map((layout) => (
           <li key={layout.layoutId}>
             <input value={layout.name} onChange={(e) => onRename(layout.layoutId, e.target.value)} />
-            <button onClick={() => onSelect(layout.layoutId)}>{activeLayoutId === layout.layoutId ? 'Seleccionado' : 'Seleccionar'}</button>
+            <button onClick={() => onSelect(layout.layoutId)}>{activeLayoutId === layout.layoutId ? 'Viendo' : 'Visualizar'}</button>
             <button onClick={() => onEdit(layout.layoutId)}>Editar</button>
             <button onClick={() => onDuplicate(layout.layoutId)} disabled={layouts.length >= maxLayouts}>Duplicar</button>
+            <button onClick={() => onExportOne(layout.layoutId)}>Exportar</button>
             <button onClick={() => onDelete(layout.layoutId)} disabled={layouts.length <= 1}>Eliminar</button>
           </li>
         ))}
