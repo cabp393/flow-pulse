@@ -39,18 +39,31 @@ const buildPath = (layout: Layout, run: RunResult, palletId: string): Coord[] =>
   return out;
 };
 
+const buildVisitCounts = (path: Coord[], stepIndex: number): Record<string, number> => {
+  if (!path.length) return {};
+  const lastStep = Math.min(stepIndex, path.length - 1);
+  const counts: Record<string, number> = {};
+  for (let i = 0; i <= lastStep; i += 1) {
+    const key = keyOf(path[i]);
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+  return counts;
+};
+
 export function PlayerCompare({ layout, runA, runB, palletIndex, stepIndex }: { layout: Layout; runA?: RunResult; runB?: RunResult; palletIndex: number; stepIndex: number }) {
   const palletId = runA?.palletOrder[palletIndex] ?? runB?.palletOrder[palletIndex] ?? '';
   const pathA = useMemo(() => (runA && palletId ? buildPath(layout, runA, palletId) : []), [layout, palletId, runA]);
   const pathB = useMemo(() => (runB && palletId ? buildPath(layout, runB, palletId) : []), [layout, palletId, runB]);
+  const visitCountsA = useMemo(() => buildVisitCounts(pathA, stepIndex), [pathA, stepIndex]);
+  const visitCountsB = useMemo(() => buildVisitCounts(pathB, stepIndex), [pathB, stepIndex]);
 
   return (
     <div className="compare-grid-wrap">
       <div>
-        <GridCanvas layout={layout} zoom={17} selectedTool="AISLE" onPaint={() => undefined} onSelect={() => undefined} path={pathA} pickerPosition={pathA[Math.min(stepIndex, Math.max(pathA.length - 1, 0))]} />
+        <GridCanvas layout={layout} zoom={17} selectedTool="AISLE" onPaint={() => undefined} onSelect={() => undefined} pickerPosition={pathA[Math.min(stepIndex, Math.max(pathA.length - 1, 0))]} visitCounts={visitCountsA} />
       </div>
       <div>
-        <GridCanvas layout={layout} zoom={17} selectedTool="AISLE" onPaint={() => undefined} onSelect={() => undefined} path={pathB} pickerPosition={pathB[Math.min(stepIndex, Math.max(pathB.length - 1, 0))]} />
+        <GridCanvas layout={layout} zoom={17} selectedTool="AISLE" onPaint={() => undefined} onSelect={() => undefined} pickerPosition={pathB[Math.min(stepIndex, Math.max(pathB.length - 1, 0))]} visitCounts={visitCountsB} />
       </div>
     </div>
   );
