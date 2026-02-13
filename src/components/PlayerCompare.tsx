@@ -65,11 +65,11 @@ export function PlayerCompare({
   return (
     <div className="compare-grid-wrap">
       <div>
-        <GridCanvas layout={layout} zoom={20} selectedTool="AISLE" onPaint={() => undefined} onSelect={() => undefined} path={pathA} pickerPosition={pathA[Math.min(stepIndex, Math.max(pathA.length - 1, 0))]} />
+        <GridCanvas layout={layout} zoom={17} selectedTool="AISLE" onPaint={() => undefined} onSelect={() => undefined} path={pathA} pickerPosition={pathA[Math.min(stepIndex, Math.max(pathA.length - 1, 0))]} />
         {stepIndex >= pathA.length && pathA.length > 0 && <p>Run A finalizado</p>}
       </div>
       <div>
-        <GridCanvas layout={layout} zoom={20} selectedTool="AISLE" onPaint={() => undefined} onSelect={() => undefined} path={pathB} pickerPosition={pathB[Math.min(stepIndex, Math.max(pathB.length - 1, 0))]} />
+        <GridCanvas layout={layout} zoom={17} selectedTool="AISLE" onPaint={() => undefined} onSelect={() => undefined} path={pathB} pickerPosition={pathB[Math.min(stepIndex, Math.max(pathB.length - 1, 0))]} />
         {stepIndex >= pathB.length && pathB.length > 0 && <p>Run B finalizado</p>}
       </div>
     </div>

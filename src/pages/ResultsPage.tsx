@@ -25,7 +25,7 @@ export function ResultsPage({ layout, runs, masters, onDeleteRun }: Props) {
       </div>
       <p>SKU Master: {masterName}</p>
       <p>Total pallets: {run.summary.totalPallets} · Steps: {run.summary.totalSteps} · Avg: {run.summary.avgSteps.toFixed(2)}</p>
-      <GridCanvas layout={layout} zoom={22} selectedTool="AISLE" onPaint={() => undefined} onSelect={() => undefined} heatmap={run.heatmapSteps} />
+      <GridCanvas layout={layout} zoom={19} selectedTool="AISLE" onPaint={() => undefined} onSelect={() => undefined} heatmap={run.heatmapSteps} />
     </div>
   );
 }

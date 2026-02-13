@@ -22,11 +22,11 @@ export function HeatmapSideBySide({ layout, runA, runB, sharedScale }: { layout:
     <div className="compare-grid-wrap">
       <div>
         <h4>Run A</h4>
-        {runA && <GridCanvas layout={layout} zoom={20} selectedTool="AISLE" onPaint={() => undefined} onSelect={() => undefined} heatmap={heatA} />}
+        {runA && <GridCanvas layout={layout} zoom={17} selectedTool="AISLE" onPaint={() => undefined} onSelect={() => undefined} heatmap={heatA} />}
       </div>
       <div>
         <h4>Run B</h4>
-        {runB && <GridCanvas layout={layout} zoom={20} selectedTool="AISLE" onPaint={() => undefined} onSelect={() => undefined} heatmap={heatB} />}
+        {runB && <GridCanvas layout={layout} zoom={17} selectedTool="AISLE" onPaint={() => undefined} onSelect={() => undefined} heatmap={heatB} />}
       </div>
     </div>
   );
