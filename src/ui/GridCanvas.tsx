@@ -49,7 +49,7 @@ export function GridCanvas({
 
   return (
     <div ref={rootRef} className="grid-canvas" style={{ gridTemplateColumns: `repeat(${layout.width}, ${zoom}px)` }}>
-      {layout.grid.map((row, y) =>
+      {layout.gridData.map((row, y) =>
         row.map((cell, x) => {
           const heat = heatmap?.[y]?.[x] ?? 0;
           const intensity = maxHeat ? heat / maxHeat : 0;

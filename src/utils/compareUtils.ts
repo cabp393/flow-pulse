@@ -10,6 +10,6 @@ export const normalizeHeatmap = (heatmap: number[][], sourceMax: number, targetM
 export const validateComparableRuns = (runA?: RunResult, runB?: RunResult): string[] => {
   if (!runA || !runB) return [];
   const errors: string[] = [];
-  if (runA.layoutVersionId !== runB.layoutVersionId) errors.push('LayoutVersion diferente');
+  if (runA.layoutId !== runB.layoutId) errors.push('Layout diferente');
   return errors;
 };

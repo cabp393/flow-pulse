@@ -11,7 +11,7 @@ export const adjacent = (a: Coord, b: Coord): boolean => Math.abs(a.x - b.x) + M
 export const findSingleCell = (layout: Layout, type: 'START' | 'END'): Coord | undefined => {
   for (let y = 0; y < layout.height; y += 1) {
     for (let x = 0; x < layout.width; x += 1) {
-      if (layout.grid[y][x].type === type) return { x, y };
+      if (layout.gridData[y][x].type === type) return { x, y };
     }
   }
   return undefined;
@@ -32,12 +32,13 @@ export const resizeLayout = (layout: Layout, width: number, height: number): Lay
   const safeHeight = Math.max(1, Math.floor(height));
 
   const nextGrid = Array.from({ length: safeHeight }, (_, y) =>
-    Array.from({ length: safeWidth }, (_, x) => (y < layout.height && x < layout.width ? structuredClone(layout.grid[y][x]) : createCell())),
+    Array.from({ length: safeWidth }, (_, x) => (y < layout.height && x < layout.width ? structuredClone(layout.gridData[y][x]) : createCell())),
   );
 
   return {
+    ...layout,
     width: safeWidth,
     height: safeHeight,
-    grid: nextGrid,
+    gridData: nextGrid,
   };
 };

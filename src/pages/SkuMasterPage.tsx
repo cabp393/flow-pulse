@@ -19,7 +19,7 @@ export function SkuMasterPage({ layout, masters, activeSkuMasterId, onChange }: 
 
   const validLocationIds = useMemo(() => {
     const ids = new Set<string>();
-    layout.grid.flat().forEach((c) => {
+    layout.gridData.flat().forEach((c) => {
       if (c.type === 'PICK' && c.pick?.locationId) ids.add(c.pick.locationId);
     });
     return ids;

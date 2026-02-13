@@ -15,7 +15,7 @@ const buildPath = (layout: Layout, run: RunResult, palletId: string): Coord[] =>
 
   const access = new Map<string, Coord>();
   for (let y = 0; y < layout.height; y += 1) for (let x = 0; x < layout.width; x += 1) {
-    const c = layout.grid[y][x];
+    const c = layout.gridData[y][x];
     if (c.type === 'PICK' && c.pick) access.set(c.pick.locationId, c.pick.accessCell);
   }
 
