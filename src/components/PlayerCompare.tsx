@@ -19,12 +19,13 @@ function PlayerRunPane({ title, run, layout, palletId, stepIndex }: PlayerRunPan
 
   const clampedStep = Math.min(stepIndex, Math.max(path.length - 1, 0));
   const visitCounts = useMemo(() => buildVisitCounts(path, clampedStep), [clampedStep, path]);
+  const isFinished = path.length > 0 && stepIndex >= path.length - 1;
 
   return (
     <section className="page">
       <h3>{title}</h3>
       <p>
-        {run ? run.name : 'Sin run seleccionado'}
+        {run ? `${run.name}${isFinished ? ' 🏁' : ''}` : 'Sin run seleccionado'}
         {layout ? ` · Layout: ${layout.name}` : ' · Sin layout'}
       </p>
       {layout && (
