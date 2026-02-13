@@ -1,59 +1,77 @@
-import { useState } from 'react';
-import type { Layout, PalletResolved, SkuMap } from '../models/domain';
-import { resolvePallets, simulate } from '../routing/pathfinding';
+import { useMemo, useState } from 'react';
+import type { Layout, PalletBatch, RunResult, SkuMaster } from '../models/domain';
 import { parsePalletXlsx } from '../utils/parsers';
+import { buildRun } from '../routing/runBuilder';
 
 interface Props {
   layout: Layout;
-  skuMap: SkuMap;
-  onRun: ReturnType<typeof simulate> extends infer T ? (run: T) => void : never;
+  masters: SkuMaster[];
+  activeSkuMasterId?: string;
+  batches: PalletBatch[];
+  onSaveBatches: (batches: PalletBatch[]) => void;
+  onGeneratedRuns: (runs: RunResult[]) => void;
 }
 
-export function PalletImportPage({ layout, skuMap, onRun }: Props) {
-  const [pallets, setPallets] = useState<PalletResolved[]>([]);
-  const [issues, setIssues] = useState<string[]>([]);
-  const [linesCount, setLinesCount] = useState(0);
-  const [error, setError] = useState('');
+export function PalletImportPage({ layout, masters, activeSkuMasterId, batches, onSaveBatches, onGeneratedRuns }: Props) {
+  const [batchName, setBatchName] = useState('Batch');
+  const [selectedBatchId, setSelectedBatchId] = useState<string>();
+  const [selectedMasterIds, setSelectedMasterIds] = useState<string[]>(activeSkuMasterId ? [activeSkuMasterId] : []);
+  const [info, setInfo] = useState('');
+
+  const selectedBatch = useMemo(() => batches.find((item) => item.palletBatchId === selectedBatchId), [batches, selectedBatchId]);
 
   return (
     <div className="page">
-      <h2>Importar pallets XLSX</h2>
+      <h2>Run Builder</h2>
+      <label>Nombre batch <input value={batchName} onChange={(e) => setBatchName(e.target.value)} /></label>
       <input
         type="file"
         accept=".xlsx"
         onChange={async (e) => {
           const file = e.target.files?.[0];
           if (!file) return;
-          try {
-            const lines = await parsePalletXlsx(file);
-            setLinesCount(lines.length);
-            const resolved = resolvePallets(lines, skuMap, layout);
-            setPallets(resolved.pallets);
-            setIssues(resolved.issues);
-            setError('');
-          } catch (err) {
-            setError((err as Error).message);
-          }
+          const lines = await parsePalletXlsx(file);
+          const batch: PalletBatch = { palletBatchId: crypto.randomUUID(), name: batchName || file.name, lines, createdAt: new Date().toISOString() };
+          onSaveBatches([batch, ...batches]);
+          setSelectedBatchId(batch.palletBatchId);
+          setInfo(`Batch cargado: ${lines.length} líneas`);
         }}
       />
-      {error && <p className="error">{error}</p>}
-      <p>Total líneas: {linesCount}</p>
-      <p>Total pallets: {pallets.length}</p>
-      {issues.length > 0 && (
-        <div className="error">
-          <p>Issues detectados:</p>
-          <ul>{issues.map((i) => <li key={i}>{i}</li>)}</ul>
-        </div>
-      )}
+      <label>
+        Batch
+        <select value={selectedBatchId ?? ''} onChange={(e) => setSelectedBatchId(e.target.value)}>
+          <option value="">--</option>
+          {batches.map((batch) => <option key={batch.palletBatchId} value={batch.palletBatchId}>{batch.name} ({batch.lines.length})</option>)}
+        </select>
+      </label>
+      <fieldset>
+        <legend>SKU Masters a correr</legend>
+        {masters.map((master) => (
+          <label key={master.skuMasterId}>
+            <input
+              type="checkbox"
+              checked={selectedMasterIds.includes(master.skuMasterId)}
+              onChange={(e) => setSelectedMasterIds((prev) => e.target.checked ? [...new Set([...prev, master.skuMasterId])] : prev.filter((id) => id !== master.skuMasterId))}
+            />
+            {master.name}
+          </label>
+        ))}
+      </fieldset>
       <button
-        disabled={!pallets.length}
+        disabled={!selectedBatch || !selectedMasterIds.length}
         onClick={() => {
-          const run = simulate(layout, pallets);
-          onRun(run);
+          if (!selectedBatch) return;
+          const generated = selectedMasterIds
+            .map((id) => masters.find((master) => master.skuMasterId === id))
+            .filter(Boolean)
+            .map((master) => buildRun(layout, selectedBatch.palletBatchId, master!.skuMasterId, master!.mapping, selectedBatch.lines));
+          onGeneratedRuns(generated);
+          setInfo(`Generados ${generated.length} runs`);
         }}
       >
-        Generar heatmap
+        Generar Run
       </button>
+      {info && <p>{info}</p>}
     </div>
   );
 }

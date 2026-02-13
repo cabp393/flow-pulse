@@ -162,27 +162,21 @@ export const simulate = (
     }
   }
 
+  const runId = `${Date.now()}`;
   const results: RunPalletResult[] = pallets.map((pallet) => {
     const issues = [...pallet.issues];
-    const stopDetails: RunPalletResult['stopDetails'] = pallet.picks
+    const stopDetails = pallet.picks
       .map((pick, index) => {
         const accessCell = pickAccess.get(pick.locationId);
         if (!accessCell) {
           issues.push(`Sin accessCell para location ${pick.locationId}`);
           return undefined;
         }
-        return {
-          order: index + 1,
-          sku: pick.sku,
-          locationId: pick.locationId,
-          sequence: pick.sequence,
-          accessCell,
-        };
+        return { order: index + 1, sku: pick.sku, locationId: pick.locationId, sequence: pick.sequence, accessCell };
       })
-      .filter((stop): stop is RunPalletResult['stopDetails'][number] => Boolean(stop));
+      .filter((stop): stop is NonNullable<typeof stop> => Boolean(stop));
 
-    const pickStops = stopDetails.map((stop) => stop.accessCell);
-    const stops = [start, ...pickStops, end];
+    const stops = [start, ...stopDetails.map((stop) => stop.accessCell), end];
     const visited: Coord[] = [];
 
     for (let i = 0; i < stops.length - 1; i += 1) {
@@ -203,23 +197,33 @@ export const simulate = (
     }
 
     return {
+      runId,
       palletId: pallet.palletId,
       visited,
       steps: visited.length,
       stops,
       stopDetails,
       issues,
+      hasPath: issues.length === pallet.issues.length,
+      issuesCount: issues.length,
     };
   });
 
-  const createdAt = new Date().toISOString();
-
   return {
-    runId: `${Date.now()}`,
-    layoutHash,
-    heatmap,
-    pallets: results,
-    totalSteps: results.reduce((acc, p) => acc + p.steps, 0),
-    createdAt,
+    runId,
+    layoutVersionId: layoutHash,
+    palletBatchId: 'legacy-batch',
+    skuMasterId: 'legacy-sku',
+    routingParamsHash: 'legacy',
+    createdAt: new Date().toISOString(),
+    summary: {
+      totalPallets: results.length,
+      totalSteps: results.reduce((acc, p) => acc + p.steps, 0),
+      avgSteps: results.length ? results.reduce((acc, p) => acc + p.steps, 0) / results.length : 0,
+      errorCount: results.reduce((acc, p) => acc + p.issuesCount, 0),
+    },
+    heatmapSteps: heatmap,
+    palletOrder: results.map((item) => item.palletId),
+    palletResults: results,
   };
 };

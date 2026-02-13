@@ -32,9 +32,23 @@ export interface Layout {
 
 export type SkuMap = Record<string, string>;
 
+export interface SkuMaster {
+  skuMasterId: string;
+  name: string;
+  mapping: SkuMap;
+  createdAt: string;
+}
+
 export interface PalletLine {
   pallet_id: string;
   sku: string;
+}
+
+export interface PalletBatch {
+  palletBatchId: string;
+  name: string;
+  lines: PalletLine[];
+  createdAt: string;
 }
 
 export interface PalletResolved {
@@ -54,21 +68,35 @@ export interface RunStopDetail {
 }
 
 export interface RunPalletResult {
+  runId: string;
   palletId: string;
   steps: number;
-  visited: Coord[];
-  stops: Coord[];
+  hasPath: boolean;
+  issuesCount: number;
+  visited?: Coord[];
+  stops?: Coord[];
   stopDetails: RunStopDetail[];
   issues: string[];
 }
 
+export interface RunSummary {
+  totalPallets: number;
+  totalSteps: number;
+  avgSteps: number;
+  errorCount: number;
+}
+
 export interface RunResult {
   runId: string;
-  layoutHash: string;
-  heatmap: number[][];
-  pallets: RunPalletResult[];
-  totalSteps: number;
+  layoutVersionId: string;
+  palletBatchId: string;
+  skuMasterId: string;
+  routingParamsHash: string;
   createdAt: string;
+  summary: RunSummary;
+  heatmapSteps: number[][];
+  palletOrder: string[];
+  palletResults: RunPalletResult[];
 }
 
 export interface PlayerPreferences {
@@ -79,9 +107,19 @@ export interface PlayerPreferences {
   followCamera: boolean;
 }
 
+export interface PlayerComparePreferences {
+  runAId?: string;
+  runBId?: string;
+  palletIndex: number;
+  speedMs: number;
+  autoContinue: boolean;
+}
+
 export interface AppState {
   schemaVersion: number;
   layout: Layout;
-  skuMap: SkuMap;
-  lastRun?: RunResult;
+  skuMasters: SkuMaster[];
+  activeSkuMasterId?: string;
+  palletBatches: PalletBatch[];
+  runs: RunResult[];
 }
