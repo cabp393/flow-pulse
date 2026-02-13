@@ -26,6 +26,10 @@ export const createSkuMaster = (name: string, rows: SkuMasterRow[]): SkuMaster =
 export const updateSkuMaster = (masters: SkuMaster[], master: SkuMaster): SkuMaster[] =>
   masters.map((item) => (item.skuMasterId === master.skuMasterId ? { ...master, index: buildSkuIndex(master.rows) } : item));
 
+
+export const renameSkuMaster = (masters: SkuMaster[], skuMasterId: string, name: string): SkuMaster[] =>
+  masters.map((item) => (item.skuMasterId === skuMasterId ? { ...item, name } : item));
+
 export const removeSkuMaster = (masters: SkuMaster[], skuMasterId: string): SkuMaster[] =>
   masters.filter((item) => item.skuMasterId !== skuMasterId);
 

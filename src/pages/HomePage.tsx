@@ -1,5 +1,8 @@
+import { useState, type ReactNode } from 'react';
 import type { Layout, RunResult, SkuMaster } from '../models/domain';
 import { PalletImportPage } from './PalletImportPage';
+import { ConfirmModal } from '../components/ConfirmModal';
+import { InlineIconButton } from '../components/InlineIcon';
 
 interface Props {
   layouts: Layout[];
@@ -9,6 +12,20 @@ interface Props {
   runs: RunResult[];
   onCreateRun: (run: RunResult) => void;
   onSelectLayout: (layoutId: string) => void;
+  onEditLayout: (layoutId: string) => void;
+  onDuplicateLayout: (layoutId: string) => void;
+  onRenameLayout: (layoutId: string, name: string) => void;
+  onDeleteLayout: (layoutId: string) => void;
+  onOpenSkuMaster: (skuMasterId: string) => void;
+  onDuplicateSkuMaster: (skuMasterId: string) => void;
+  onRenameSkuMaster: (skuMasterId: string, name: string) => void;
+  onDeleteSkuMaster: (skuMasterId: string) => void;
+  onExportSkuMaster: (skuMasterId: string) => void;
+  onOpenRun: (runId: string) => void;
+  onOpenRunInCompare: (runId: string) => void;
+  onOpenRunInPlayer: (runId: string) => void;
+  onRenameRun: (runId: string, name: string) => void;
+  onDeleteRun: (runId: string) => void;
   onGoToLayouts: () => void;
   onGoToSkuMasters: () => void;
   onGoToResults: () => void;
@@ -17,41 +34,31 @@ interface Props {
   onResetStorage: () => void;
 }
 
+type ConfirmState =
+  | { kind: 'layout'; id: string; name: string }
+  | { kind: 'sku'; id: string; name: string }
+  | { kind: 'run'; id: string; name: string }
+  | { kind: 'clear-runs' }
+  | { kind: 'reset' }
+  | undefined;
+
 const formatStorageSize = (payload: unknown): string => {
   const bytes = new TextEncoder().encode(JSON.stringify(payload)).length;
   if (bytes < 1024) return `${bytes} B`;
   return `${(bytes / 1024).toFixed(1)} KB`;
 };
 
-interface SavedSectionProps {
-  title: string;
-  countLabel: string;
-  size: string;
-  items: string[];
-  emptyText: string;
-  actions: Array<{ label: string; onClick: () => void }>;
-}
+const dateFmt = (value: string) => new Date(value).toLocaleDateString();
 
-function SavedSection({ title, countLabel, size, items, emptyText, actions }: SavedSectionProps) {
+function ItemRow({ title, subtitle, actions }: { title: string; subtitle?: string; actions: ReactNode }) {
   return (
-    <section className="page home-section">
-      <div className="home-section-header">
-        <h3>{title}</h3>
-        <span>{countLabel} ({size})</span>
+    <li className="inline-row">
+      <div>
+        <strong>{title}</strong>
+        {subtitle && <small>{subtitle}</small>}
       </div>
-      {items.length ? (
-        <ul className="home-saved-list">
-          {items.map((item) => <li key={item}>{item}</li>)}
-        </ul>
-      ) : (
-        <p>{emptyText}</p>
-      )}
-      <div className="toolbar">
-        {actions.map((action) => (
-          <button key={action.label} onClick={action.onClick}>{action.label}</button>
-        ))}
-      </div>
-    </section>
+      <div className="row-actions">{actions}</div>
+    </li>
   );
 }
 
@@ -63,6 +70,20 @@ export function HomePage({
   runs,
   onCreateRun,
   onSelectLayout,
+  onEditLayout,
+  onDuplicateLayout,
+  onRenameLayout,
+  onDeleteLayout,
+  onOpenSkuMaster,
+  onDuplicateSkuMaster,
+  onRenameSkuMaster,
+  onDeleteSkuMaster,
+  onExportSkuMaster,
+  onOpenRun,
+  onOpenRunInCompare,
+  onOpenRunInPlayer,
+  onRenameRun,
+  onDeleteRun,
   onGoToLayouts,
   onGoToSkuMasters,
   onGoToResults,
@@ -70,9 +91,22 @@ export function HomePage({
   onClearOldRuns,
   onResetStorage,
 }: Props) {
+  const [confirmState, setConfirmState] = useState<ConfirmState>();
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+
+  const confirmAction = () => {
+    if (!confirmState) return;
+    if (confirmState.kind === 'layout') onDeleteLayout(confirmState.id);
+    if (confirmState.kind === 'sku') onDeleteSkuMaster(confirmState.id);
+    if (confirmState.kind === 'run') onDeleteRun(confirmState.id);
+    if (confirmState.kind === 'clear-runs') onClearOldRuns();
+    if (confirmState.kind === 'reset') onResetStorage();
+    setConfirmState(undefined);
+  };
+
   return (
     <div className="home-grid">
-      <section className="home-section">
+      <section className="page home-section">
         <PalletImportPage
           layouts={layouts}
           activeLayoutId={activeLayoutId}
@@ -83,40 +117,106 @@ export function HomePage({
         />
       </section>
 
-      <SavedSection
-        title="Layouts guardados"
-        countLabel={`${layouts.length} layouts`}
-        size={formatStorageSize(layouts)}
-        items={layouts.slice(0, 5).map((layout) => layout.name)}
-        emptyText="Todavía no hay layouts guardados."
-        actions={[
-          { label: 'Gestionar layouts', onClick: onGoToLayouts },
-          { label: 'Editar layout activo', onClick: onGoToEditor },
-        ]}
-      />
+      <section className="page home-section">
+        <div className="home-section-header"><h3>Layouts guardados</h3><span>{layouts.length} ({formatStorageSize(layouts)})</span></div>
+        <ul className="home-saved-list">
+          {layouts.map((layout) => (
+            <ItemRow
+              key={layout.layoutId}
+              title={layout.name}
+              subtitle={`${layout.width}x${layout.height} · ${dateFmt(layout.createdAt)}${layout.layoutId === activeLayoutId ? ' · activo' : ''}`}
+              actions={(
+                <>
+                  <InlineIconButton icon="pencil" title="Editar layout" onClick={() => onEditLayout(layout.layoutId)} />
+                  <InlineIconButton icon="copy" title="Duplicar layout" onClick={() => onDuplicateLayout(layout.layoutId)} />
+                  <InlineIconButton icon="rename" title="Renombrar layout" onClick={() => {
+                    const next = window.prompt('Nuevo nombre del layout', layout.name);
+                    if (next && next.trim()) onRenameLayout(layout.layoutId, next.trim());
+                  }} />
+                  <InlineIconButton icon="trash" title="Eliminar layout" onClick={() => setConfirmState({ kind: 'layout', id: layout.layoutId, name: layout.name })} disabled={layouts.length <= 1} />
+                </>
+              )}
+            />
+          ))}
+        </ul>
+        <div className="toolbar"><button onClick={onGoToLayouts}>Gestión avanzada</button><button onClick={onGoToEditor}>Editor layout activo</button></div>
+      </section>
 
-      <SavedSection
-        title="SKU Masters guardados"
-        countLabel={`${skuMasters.length} masters`}
-        size={formatStorageSize(skuMasters)}
-        items={skuMasters.slice(0, 5).map((master) => master.name)}
-        emptyText="Todavía no hay SKU masters guardados."
-        actions={[
-          { label: 'Gestionar SKU masters', onClick: onGoToSkuMasters },
-        ]}
-      />
+      <section className="page home-section">
+        <div className="home-section-header"><h3>SKU Masters guardados</h3><span>{skuMasters.length} ({formatStorageSize(skuMasters)})</span></div>
+        <ul className="home-saved-list">
+          {skuMasters.map((master) => (
+            <ItemRow
+              key={master.skuMasterId}
+              title={master.name}
+              subtitle={`${master.rows.length} filas · ${dateFmt(master.createdAt)}${master.skuMasterId === activeSkuMasterId ? ' · activo' : ''}`}
+              actions={(
+                <>
+                  <InlineIconButton icon="pencil" title="Ver/Editar SKU master" onClick={() => onOpenSkuMaster(master.skuMasterId)} />
+                  <InlineIconButton icon="copy" title="Duplicar SKU master" onClick={() => onDuplicateSkuMaster(master.skuMasterId)} />
+                  <InlineIconButton icon="rename" title="Renombrar SKU master" onClick={() => {
+                    const next = window.prompt('Nuevo nombre del SKU master', master.name);
+                    if (next && next.trim()) onRenameSkuMaster(master.skuMasterId, next.trim());
+                  }} />
+                  <InlineIconButton icon="download" title="Exportar SKU master" onClick={() => onExportSkuMaster(master.skuMasterId)} />
+                  <InlineIconButton icon="trash" title="Eliminar SKU master" onClick={() => setConfirmState({ kind: 'sku', id: master.skuMasterId, name: master.name })} />
+                </>
+              )}
+            />
+          ))}
+        </ul>
+        <div className="toolbar"><button onClick={onGoToSkuMasters}>Gestión avanzada</button></div>
+      </section>
 
-      <SavedSection
-        title="Runs guardados"
-        countLabel={`${runs.length} runs`}
-        size={formatStorageSize(runs)}
-        items={runs.slice(0, 5).map((run) => run.name)}
-        emptyText="Todavía no hay runs guardados."
-        actions={[
-          { label: 'Ver resultados', onClick: onGoToResults },
-          { label: 'Limpiar runs antiguos', onClick: onClearOldRuns },
-          { label: 'Reset localStorage', onClick: onResetStorage },
-        ]}
+      <section className="page home-section">
+        <div className="home-section-header"><h3>Runs guardados</h3><span>{runs.length} ({formatStorageSize(runs)})</span></div>
+        <ul className="home-saved-list">
+          {runs.map((run) => (
+            <ItemRow
+              key={run.runId}
+              title={run.name}
+              subtitle={`${run.summary.totalPallets} pallets · ${dateFmt(run.createdAt)}`}
+              actions={(
+                <>
+                  <InlineIconButton icon="chart" title="Ver resultados" onClick={() => onOpenRun(run.runId)} />
+                  <InlineIconButton icon="split" title="Abrir en comparar" onClick={() => onOpenRunInCompare(run.runId)} />
+                  <InlineIconButton icon="play" title="Abrir en player" onClick={() => onOpenRunInPlayer(run.runId)} />
+                  <InlineIconButton icon="rename" title="Renombrar run" onClick={() => {
+                    const next = window.prompt('Nuevo nombre del run', run.name);
+                    if (next && next.trim()) onRenameRun(run.runId, next.trim());
+                  }} />
+                  <InlineIconButton icon="trash" title="Eliminar run" onClick={() => setConfirmState({ kind: 'run', id: run.runId, name: run.name })} />
+                </>
+              )}
+            />
+          ))}
+        </ul>
+        <div className="toolbar"><button onClick={onGoToResults}>Vista Heatmap</button></div>
+
+        <details open={advancedOpen} onToggle={(event) => setAdvancedOpen((event.target as HTMLDetailsElement).open)}>
+          <summary>Avanzado</summary>
+          <div className="toolbar">
+            <button onClick={() => setConfirmState({ kind: 'clear-runs' })}>Limpiar runs antiguos</button>
+            <button className="danger" onClick={() => setConfirmState({ kind: 'reset' })}>Reset localStorage</button>
+          </div>
+        </details>
+      </section>
+
+      <ConfirmModal
+        open={Boolean(confirmState)}
+        title="Confirmar eliminación"
+        description={
+          confirmState?.kind === 'reset'
+            ? 'Se borrarán Layouts, SKU Masters y Runs del localStorage.'
+            : confirmState?.kind === 'clear-runs'
+              ? 'Se eliminarán los runs antiguos guardados.'
+              : `Esta acción eliminará "${confirmState?.name}".`
+        }
+        confirmLabel="Confirmar"
+        cancelLabel="Cancelar"
+        onCancel={() => setConfirmState(undefined)}
+        onConfirm={confirmAction}
+        danger
       />
     </div>
   );
