@@ -14,6 +14,22 @@ export function PlayerComparePage({
   prefs: PlayerComparePreferences;
   onChangePrefs: (prefs: PlayerComparePreferences) => void;
 }) {
+  const getPalletIdAt = (run: RunResult | undefined, palletIndex: number): string | undefined => run?.palletOrder[palletIndex];
+
+  const isPlayableAt = (palletIndex: number): boolean => {
+    const palletIdA = getPalletIdAt(runA, palletIndex);
+    const palletIdB = getPalletIdAt(runB, palletIndex);
+    return isPlayablePallet(runA, palletIdA) || isPlayablePallet(runB, palletIdB);
+  };
+
+  const findNextPlayableIndex = (fromIndex: number): number | undefined => {
+    const maxIndex = Math.max(0, palletCount - 1);
+    for (let next = fromIndex + 1; next <= maxIndex; next += 1) {
+      if (isPlayableAt(next)) return next;
+    }
+    return undefined;
+  };
+
   const isPlayablePallet = (run: RunResult | undefined, palletId: string | undefined): boolean => {
     if (!run || !palletId) return false;
     const pallet = run.palletResults.find((item) => item.palletId === palletId);
@@ -33,9 +49,10 @@ export function PlayerComparePage({
 
   const palletCount = Math.max(runA?.palletOrder.length ?? 0, runB?.palletOrder.length ?? 0);
   const getMaxStepForIndex = (palletIndex: number): number => {
-    const palletId = runA?.palletOrder[palletIndex] ?? runB?.palletOrder[palletIndex];
-    const stepsA = isPlayablePallet(runA, palletId) ? getPalletSteps(runA, palletId) : 0;
-    const stepsB = isPlayablePallet(runB, palletId) ? getPalletSteps(runB, palletId) : 0;
+    const palletIdA = runA?.palletOrder[palletIndex];
+    const palletIdB = runB?.palletOrder[palletIndex];
+    const stepsA = isPlayablePallet(runA, palletIdA) ? getPalletSteps(runA, palletIdA) : 0;
+    const stepsB = isPlayablePallet(runB, palletIdB) ? getPalletSteps(runB, palletIdB) : 0;
     return Math.max(stepsA, stepsB, 0);
   };
   const maxStep = getMaxStepForIndex(prefs.palletIndex);
@@ -63,17 +80,17 @@ export function PlayerComparePage({
   }, [engineMaxStep]);
 
   useEffect(() => {
-    const palletId = runA?.palletOrder[engine.state.palletIndex] ?? runB?.palletOrder[engine.state.palletIndex];
-    const playableA = isPlayablePallet(runA, palletId);
-    const playableB = isPlayablePallet(runB, palletId);
     if (engine.state.status !== 'playing') return;
-    if (playableA || playableB) return;
-    if (engine.state.palletIndex < Math.max(0, palletCount - 1)) {
-      engine.nextPallet();
+    if (isPlayableAt(engine.state.palletIndex)) return;
+
+    const nextPlayable = findNextPlayableIndex(engine.state.palletIndex);
+    if (nextPlayable !== undefined) {
+      engine.setPalletIndex(nextPlayable);
+      engine.play();
       return;
     }
     engine.stop();
-  }, [engine, palletCount, runA, runB, engine.state.palletIndex, engine.state.status]);
+  }, [engine, engine.state.palletIndex, engine.state.status, palletCount, runA, runB]);
 
   useEffect(() => {
     if (engine.state.palletIndex !== prefs.palletIndex) {
@@ -100,6 +117,7 @@ export function PlayerComparePage({
         <button onClick={engine.stop}>Stop</button>
         <button onClick={engine.prevPallet}>Prev pallet</button>
         <button onClick={engine.nextPallet}>Next pallet</button>
+        <button onClick={() => engine.setPalletIndex(0)}>Pallet 1</button>
         <button onClick={engine.prevStep}>Prev step</button>
         <button onClick={engine.nextStep}>Next step</button>
         <label>Velocidad(ms)<input type="number" value={prefs.speedMs} min={40} onChange={(e) => onChangePrefs({ ...prefs, speedMs: Number(e.target.value) || 40 })} /></label>
