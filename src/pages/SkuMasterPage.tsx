@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState, type ChangeEvent } from 'react';
 import type { Layout, SkuMaster } from '../models/domain';
 import { parseSkuMasterCsv } from '../utils/parsers';
 import { createSkuMaster, duplicateSkuMaster, removeSkuMaster, updateSkuMaster } from '../storage/skuMasterRepo';
@@ -8,14 +8,26 @@ interface Props {
   masters: SkuMaster[];
   activeSkuMasterId?: string;
   onChange: (next: SkuMaster[], activeSkuMasterId?: string) => void;
+  onImport: (jsonPayload: string) => void;
+  onExport: () => void;
+  onExportOne: (skuMasterId: string) => void;
 }
 
-export function SkuMasterPage({ layout, masters, activeSkuMasterId, onChange }: Props) {
+export function SkuMasterPage({
+  layout,
+  masters,
+  activeSkuMasterId,
+  onChange,
+  onImport,
+  onExport,
+  onExportOne,
+}: Props) {
   const [text, setText] = useState('ubicacion,secuencia,sku');
   const [name, setName] = useState('');
   const [editingId, setEditingId] = useState<string>();
   const [error, setError] = useState('');
   const [warnings, setWarnings] = useState<string[]>([]);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   const validLocationIds = useMemo(() => {
     const ids = new Set<string>();
@@ -28,6 +40,33 @@ export function SkuMasterPage({ layout, masters, activeSkuMasterId, onChange }: 
   const current = masters.find((item) => item.skuMasterId === editingId) ?? masters.find((item) => item.skuMasterId === activeSkuMasterId);
 
   const inconsistent = current ? current.rows.filter((row) => !validLocationIds.has(row.locationId)) : [];
+
+  const handleImportFile = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const payload = typeof reader.result === 'string' ? reader.result : '';
+      if (!payload.trim()) {
+        window.alert('El archivo está vacío.');
+      } else {
+        onImport(payload);
+      }
+      event.target.value = '';
+    };
+    reader.onerror = () => {
+      window.alert('No se pudo leer el archivo JSON.');
+      event.target.value = '';
+    };
+    reader.readAsText(file);
+  };
+
+  const editMaster = (master: SkuMaster) => {
+    setEditingId(master.skuMasterId);
+    setName(master.name);
+    setText(['ubicacion,secuencia,sku', ...master.rows.map((row) => `${row.locationId},${row.sequence},${row.sku}`)].join('\n'));
+  };
 
   const upsertFromText = () => {
     try {
@@ -62,6 +101,15 @@ export function SkuMasterPage({ layout, masters, activeSkuMasterId, onChange }: 
       <textarea value={text} onChange={(e) => setText(e.target.value)} rows={10} />
       <div className="toolbar">
         <button onClick={upsertFromText}>{editingId ? 'Guardar cambios' : 'Crear SKU Master'}</button>
+        <button onClick={onExport} disabled={masters.length === 0}>Exportar JSON</button>
+        <button type="button" onClick={() => importInputRef.current?.click()}>Importar JSON</button>
+        <input
+          ref={importInputRef}
+          type="file"
+          accept="application/json"
+          style={{ display: 'none' }}
+          onChange={handleImportFile}
+        />
       </div>
       {error && <p className="error">{error}</p>}
       {warnings.length > 0 && <ul>{warnings.map((item) => <li key={item}>{item}</li>)}</ul>}
@@ -69,14 +117,15 @@ export function SkuMasterPage({ layout, masters, activeSkuMasterId, onChange }: 
         {masters.map((master) => (
           <li key={master.skuMasterId}>
             <span><strong>{master.name}</strong> ({master.rows.length} filas)</span>
-            <button onClick={() => onChange(masters, master.skuMasterId)}>{activeSkuMasterId === master.skuMasterId ? 'Activo' : 'Activar'}</button>
-            <button onClick={() => { setEditingId(master.skuMasterId); setName(master.name); setText(['ubicacion,secuencia,sku', ...master.rows.map((row) => `${row.locationId},${row.sequence},${row.sku}`)].join('\n')); }}>Editar</button>
+            <button onClick={() => onChange(masters, master.skuMasterId)}>{activeSkuMasterId === master.skuMasterId ? 'Viendo' : 'Visualizar'}</button>
+            <button onClick={() => editMaster(master)}>Editar</button>
             <button onClick={() => {
               const duplicated = duplicateSkuMaster(masters, master.skuMasterId);
               onChange(duplicated, duplicated[0]?.skuMasterId ?? activeSkuMasterId);
             }}>
               Duplicar
             </button>
+            <button onClick={() => onExportOne(master.skuMasterId)}>Exportar</button>
             <button onClick={() => onChange(removeSkuMaster(masters, master.skuMasterId), activeSkuMasterId === master.skuMasterId ? undefined : activeSkuMasterId)}>Eliminar</button>
           </li>
         ))}
