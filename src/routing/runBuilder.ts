@@ -4,10 +4,23 @@ import { findSingleCell, hashLayout, keyOf } from '../utils/layout';
 
 export const ROUTING_PARAMS_HASH = 'astar-v1';
 
+const formatRunTimestamp = (date: Date): string => {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}`;
+};
+
+const normalizeNamePart = (value: string): string =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '')
+    .toLowerCase() || 'skumaster';
+
 export const buildRun = (
   layout: Layout,
   palletBatchId: string,
   skuMasterId: string,
+  skuMasterName: string,
   skuMap: SkuMap,
   lines: PalletLine[],
 ): RunResult => {
@@ -68,7 +81,8 @@ export const buildRun = (
     });
   }
 
-  const runId = crypto.randomUUID();
+  const now = new Date();
+  const runId = `${formatRunTimestamp(now)}_${normalizeNamePart(skuMasterName)}`;
   const run: RunResult = {
     runId,
     layoutVersionId,

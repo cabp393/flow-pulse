@@ -23,14 +23,27 @@ export function PlayerComparePage({
   const runB = useMemo(() => runs.find((r) => r.runId === prefs.runBId), [prefs.runBId, runs]);
   const errors = validateComparableRuns(runA, runB);
   const palletCount = Math.max(runA?.palletOrder.length ?? 0, runB?.palletOrder.length ?? 0);
+  const currentPalletId = runA?.palletOrder[prefs.palletIndex] ?? runB?.palletOrder[prefs.palletIndex];
+  const stepsA = runA?.palletResults.find((item) => item.palletId === currentPalletId)?.steps ?? 0;
+  const stepsB = runB?.palletResults.find((item) => item.palletId === currentPalletId)?.steps ?? 0;
+  const maxSteps = Math.max(stepsA, stepsB, 1);
 
   const [stepIndex, setStepIndex] = useState(0);
 
   useEffect(() => {
     if (status !== 'playing') return;
+    if (stepIndex >= maxSteps - 1) {
+      if (prefs.autoContinue && prefs.palletIndex < palletCount - 1) {
+        setStepIndex(0);
+        onChangePrefs({ ...prefs, palletIndex: prefs.palletIndex + 1 });
+      } else {
+        setStatus('paused');
+      }
+      return;
+    }
     const timer = window.setTimeout(() => setStepIndex((s) => s + 1), prefs.speedMs);
     return () => window.clearTimeout(timer);
-  }, [prefs.speedMs, status, stepIndex]);
+  }, [maxSteps, onChangePrefs, palletCount, prefs, status, stepIndex]);
 
   useEffect(() => {
     onChangePrefs(prefs);
@@ -44,8 +57,8 @@ export function PlayerComparePage({
         <button onClick={() => setStatus('playing')}>Play</button>
         <button onClick={() => setStatus('paused')}>Pause</button>
         <button onClick={() => { setStatus('idle'); setStepIndex(0); }}>Stop</button>
-        <button onClick={() => { setStepIndex(0); onChangePrefs({ ...prefs, palletIndex: Math.max(0, prefs.palletIndex - 1) }); }}>Prev pallet</button>
-        <button onClick={() => { setStepIndex(0); onChangePrefs({ ...prefs, palletIndex: Math.min(palletCount - 1, prefs.palletIndex + 1) }); }}>Next pallet</button>
+        <button onClick={() => { setStepIndex(0); onChangePrefs({ ...prefs, palletIndex: Math.max(0, Math.min(palletCount - 1, prefs.palletIndex - 1)) }); }}>Prev pallet</button>
+        <button onClick={() => { setStepIndex(0); onChangePrefs({ ...prefs, palletIndex: Math.max(0, Math.min(palletCount - 1, prefs.palletIndex + 1)) }); }}>Next pallet</button>
         <label>Velocidad(ms)<input type="number" value={prefs.speedMs} min={40} onChange={(e) => onChangePrefs({ ...prefs, speedMs: Number(e.target.value) || 250 })} /></label>
         <label><input type="checkbox" checked={prefs.autoContinue} onChange={(e) => onChangePrefs({ ...prefs, autoContinue: e.target.checked })} /> autoContinue</label>
       </div>

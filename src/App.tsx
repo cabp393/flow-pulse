@@ -5,7 +5,7 @@ import { PalletImportPage } from './pages/PalletImportPage';
 import { ResultsPage } from './pages/ResultsPage';
 import { SkuMasterPage } from './pages/SkuMasterPage';
 import { clearState, defaultPlayerComparePreferences, loadPlayerComparePreferences, loadState, savePlayerComparePreferences, saveState } from './storage/localRepo';
-import { insertRun, clearOldRuns } from './storage/runRepo';
+import { insertRun, clearOldRuns, removeRun } from './storage/runRepo';
 import { ComparePage } from './compare/ComparePage';
 import { PlayerComparePage } from './player/PlayerComparePage';
 
@@ -49,7 +49,7 @@ export function App() {
       {tab === 'layout' && <LayoutEditorPage layout={state.layout} setLayout={setLayout} />}
       {tab === 'sku' && <SkuMasterPage layout={state.layout} masters={state.skuMasters} activeSkuMasterId={state.activeSkuMasterId} onChange={(skuMasters, activeSkuMasterId) => setState((s) => ({ ...s, skuMasters, activeSkuMasterId }))} />}
       {tab === 'pallets' && <PalletImportPage layout={state.layout} masters={state.skuMasters} activeSkuMasterId={state.activeSkuMasterId} batches={state.palletBatches} onSaveBatches={(palletBatches) => setState((s) => ({ ...s, palletBatches }))} onGeneratedRuns={(generated) => setState((s) => ({ ...s, runs: generated.reduce((acc, run) => insertRun(acc, run), s.runs) }))} />}
-      {tab === 'results' && <ResultsPage layout={state.layout} runs={state.runs} masters={state.skuMasters} />}
+      {tab === 'results' && <ResultsPage layout={state.layout} runs={state.runs} masters={state.skuMasters} onDeleteRun={(runId) => setState((s) => ({ ...s, runs: removeRun(s.runs, runId) }))} />}
       {tab === 'compare' && <ComparePage layout={state.layout} runs={state.runs} runAId={compareRunAId} runBId={compareRunBId} onSelect={(a, b) => { setCompareRunAId(a); setCompareRunBId(b); setPlayerComparePrefs((prev) => ({ ...prev, runAId: a, runBId: b })); }} />}
       {tab === 'player-compare' && <PlayerComparePage layout={state.layout} runs={state.runs} masters={state.skuMasters} batches={state.palletBatches} prefs={playerComparePrefs} onChangePrefs={setPlayerComparePrefs} />}
     </div>

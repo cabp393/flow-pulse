@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { Layout, SkuMaster } from '../models/domain';
 import { parseSkuCsv } from '../utils/parsers';
-import { createSkuMaster, removeSkuMaster, updateSkuMaster } from '../storage/skuMasterRepo';
+import { createSkuMaster, duplicateSkuMaster, removeSkuMaster, updateSkuMaster } from '../storage/skuMasterRepo';
 
 interface Props {
   layout: Layout;
@@ -62,6 +62,12 @@ export function SkuMasterPage({ layout, masters, activeSkuMasterId, onChange }: 
             <span><strong>{master.name}</strong> ({Object.keys(master.mapping).length} SKUs)</span>
             <button onClick={() => onChange(masters, master.skuMasterId)}>{activeSkuMasterId === master.skuMasterId ? 'Activo' : 'Activar'}</button>
             <button onClick={() => { setEditingId(master.skuMasterId); setName(master.name); setText(['sku,locationId', ...Object.entries(master.mapping).map(([sku, loc]) => `${sku},${loc}`)].join('\n')); }}>Editar</button>
+            <button onClick={() => {
+              const duplicated = duplicateSkuMaster(masters, master.skuMasterId);
+              onChange(duplicated, duplicated[0]?.skuMasterId ?? activeSkuMasterId);
+            }}>
+              Duplicar
+            </button>
             <button onClick={() => onChange(removeSkuMaster(masters, master.skuMasterId), activeSkuMasterId === master.skuMasterId ? undefined : activeSkuMasterId)}>Eliminar</button>
           </li>
         ))}
