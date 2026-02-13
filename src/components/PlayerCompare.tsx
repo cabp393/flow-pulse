@@ -6,9 +6,16 @@ import { GridCanvas } from '../ui/GridCanvas';
 
 const routeCache = new Map<string, Coord[]>();
 
+const isPlayablePallet = (run: RunResult | undefined, palletId: string): boolean => {
+  if (!run) return false;
+  const pallet = run.palletResults.find((item) => item.palletId === palletId);
+  if (!pallet) return false;
+  return pallet.issues.length === 0 && pallet.hasPath;
+};
+
 const buildPath = (layout: Layout, run: RunResult, palletId: string): Coord[] => {
   const pallet = run.palletResults.find((item) => item.palletId === palletId);
-  if (!pallet) return [];
+  if (!pallet || pallet.issues.length > 0 || !pallet.hasPath) return [];
   const start = findSingleCell(layout, 'START');
   const end = findSingleCell(layout, 'END');
   if (!start || !end) return [];
@@ -50,10 +57,12 @@ const buildVisitCounts = (path: Coord[], stepIndex: number): Record<string, numb
   return counts;
 };
 
-export function PlayerCompare({ layout, runA, runB, palletIndex, stepIndex }: { layout: Layout; runA?: RunResult; runB?: RunResult; palletIndex: number; stepIndex: number }) {
+export function PlayerCompare({ layout, runA, runB, palletIndex, stepIndex, onlyPlayable = false }: { layout: Layout; runA?: RunResult; runB?: RunResult; palletIndex: number; stepIndex: number; onlyPlayable?: boolean }) {
   const palletId = runA?.palletOrder[palletIndex] ?? runB?.palletOrder[palletIndex] ?? '';
-  const pathA = useMemo(() => (runA && palletId ? buildPath(layout, runA, palletId) : []), [layout, palletId, runA]);
-  const pathB = useMemo(() => (runB && palletId ? buildPath(layout, runB, palletId) : []), [layout, palletId, runB]);
+  const canPlayA = !onlyPlayable || isPlayablePallet(runA, palletId);
+  const canPlayB = !onlyPlayable || isPlayablePallet(runB, palletId);
+  const pathA = useMemo(() => (runA && palletId && canPlayA ? buildPath(layout, runA, palletId) : []), [canPlayA, layout, palletId, runA]);
+  const pathB = useMemo(() => (runB && palletId && canPlayB ? buildPath(layout, runB, palletId) : []), [canPlayB, layout, palletId, runB]);
   const visitCountsA = useMemo(() => buildVisitCounts(pathA, stepIndex), [pathA, stepIndex]);
   const visitCountsB = useMemo(() => buildVisitCounts(pathB, stepIndex), [pathB, stepIndex]);
 

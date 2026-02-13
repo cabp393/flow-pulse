@@ -246,3 +246,20 @@ textarea {
   display: flex;
   justify-content: flex-end;
 }
+
+.results-errors {
+  margin-top: 14px;
+}
+
+.results-error-card {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+}
+
+.results-error-card ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
