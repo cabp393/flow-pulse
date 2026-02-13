@@ -12,16 +12,28 @@ npm run test
 
 ## Flujo
 1. **Layouts** (`/layouts`): crear, duplicar, renombrar, eliminar y seleccionar layout activo (máximo 10).
-2. **Layout Editor** (`/layout-editor`): editar celdas `WALL`/`AISLE`/`PICK`/`START`/`END` del layout seleccionado.
+2. **Layout Editor** (`/layout-editor`): editar sobre un **draft en memoria** del layout seleccionado.
+   - Botones: `Guardar layout`, `Descartar cambios`, `Revertir a último guardado`.
+   - El badge **Cambios sin guardar** aparece cuando el draft difiere del layout persistido.
+   - El badge **Validación pendiente** aparece durante edición (sin detalle de errores).
+   - Las validaciones completas corren **solo al guardar**.
 3. **SKU Master** (`/sku`): importar CSV obligatorio `ubicacion,secuencia,sku`.
 4. **Run Builder** (`/pallets`): seleccionar layout + SKU Master, cargar XLSX (`pallet_id,sku`) y generar run (máximo 20 runs persistidos).
 5. **Results** (`/results`): revisar métricas y heatmap por run.
 6. **Player Compare** (`/player-compare`): seleccionar Run A y Run B para playback sincronizado.
 
-## Validaciones
-- Un run solo se genera si existe layout seleccionado, SKU Master seleccionado y XLSX cargado.
-- En compare/player, Run A y Run B deben compartir `layoutId`.
-- Se bloquea reproducción cuando faltan datos (run/layout inexistente o `palletOrder` vacío).
+## Validaciones de layout (al presionar Guardar layout)
+- Debe existir exactamente 1 `START` y 1 `END`.
+- Cada `PICK` debe tener `locationId` no vacío y único.
+- Cada `PICK` debe tener `accessCell`:
+  - definido,
+  - dentro del grid,
+  - tipo `AISLE`,
+  - adyacente (4-neighbors) al `PICK`.
+- `movementRules` globales no deben habilitar salida del grid.
+- Warning opcional: picks inaccesibles desde `START` en el grafo dirigido.
+
+Si falla el guardado, se abre un modal con errores/warnings y acción **Ir a celda** para centrar/seleccionar celdas problemáticas.
 
 ## Persistencia
 - Clave principal: `flowpulse.state`
