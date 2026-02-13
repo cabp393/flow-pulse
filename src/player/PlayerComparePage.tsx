@@ -20,10 +20,13 @@ export function PlayerComparePage({
   const layout = layouts.find((item) => item.layoutId === (runA?.layoutId ?? runB?.layoutId));
 
   const palletCount = Math.max(runA?.palletOrder.length ?? 0, runB?.palletOrder.length ?? 0);
-  const currentPalletId = runA?.palletOrder[prefs.palletIndex] ?? runB?.palletOrder[prefs.palletIndex];
-  const stepsA = runA?.palletResults.find((item) => item.palletId === currentPalletId)?.steps ?? 0;
-  const stepsB = runB?.palletResults.find((item) => item.palletId === currentPalletId)?.steps ?? 0;
-  const maxStep = Math.max(stepsA, stepsB, 0);
+  const getMaxStepForIndex = (palletIndex: number): number => {
+    const palletId = runA?.palletOrder[palletIndex] ?? runB?.palletOrder[palletIndex];
+    const stepsA = runA?.palletResults.find((item) => item.palletId === palletId)?.steps ?? 0;
+    const stepsB = runB?.palletResults.find((item) => item.palletId === palletId)?.steps ?? 0;
+    return Math.max(stepsA, stepsB, 0);
+  };
+  const maxStep = getMaxStepForIndex(prefs.palletIndex);
 
   const engine = usePlayerEngine({
     maxStep,
@@ -41,9 +44,11 @@ export function PlayerComparePage({
     engine.setSpeedMs(prefs.speedMs);
   }, [prefs.speedMs]);
 
+  const engineMaxStep = getMaxStepForIndex(engine.state.palletIndex);
+
   useEffect(() => {
-    engine.setMaxStep(maxStep);
-  }, [maxStep]);
+    engine.setMaxStep(engineMaxStep);
+  }, [engineMaxStep]);
 
   useEffect(() => {
     if (engine.state.palletIndex !== prefs.palletIndex) {
@@ -72,7 +77,7 @@ export function PlayerComparePage({
         <button onClick={engine.nextPallet}>Next pallet</button>
         <button onClick={engine.prevStep}>Prev step</button>
         <button onClick={engine.nextStep}>Next step</button>
-        <label>Velocidad(ms)<input type="number" value={prefs.speedMs} min={40} onChange={(e) => onChangePrefs({ ...prefs, speedMs: Number(e.target.value) || 250 })} /></label>
+        <label>Velocidad(ms)<input type="number" value={prefs.speedMs} min={40} onChange={(e) => onChangePrefs({ ...prefs, speedMs: Number(e.target.value) || 40 })} /></label>
         <label><input type="checkbox" checked={prefs.autoContinue} onChange={(e) => onChangePrefs({ ...prefs, autoContinue: e.target.checked })} /> autoContinue</label>
       </div>
       <p>Pallet: {engine.state.palletIndex + 1}/{Math.max(palletCount, 1)} · Step: {engine.state.stepIndex}</p>

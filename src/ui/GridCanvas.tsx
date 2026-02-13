@@ -11,9 +11,9 @@ interface Props {
   focusCoord?: Coord;
   highlightedCells?: Coord[];
   heatmap?: number[][];
-  path?: Coord[];
   pickAccessCells?: Coord[];
   pickerPosition?: Coord;
+  visitCounts?: Record<string, number>;
   followCamera?: boolean;
 }
 
@@ -34,13 +34,12 @@ export function GridCanvas({
   focusCoord,
   highlightedCells,
   heatmap,
-  path,
   pickAccessCells,
   pickerPosition,
+  visitCounts,
   followCamera,
 }: Props) {
   const maxHeat = Math.max(0, ...(heatmap?.flat() ?? [0]));
-  const pathSet = useMemo(() => new Set((path ?? []).map((c) => `${c.x},${c.y}`)), [path]);
   const pickAccessSet = useMemo(() => new Set((pickAccessCells ?? []).map((c) => `${c.x},${c.y}`)), [pickAccessCells]);
   const highlightSet = useMemo(() => new Set((highlightedCells ?? []).map((c) => `${c.x},${c.y}`)), [highlightedCells]);
   const pickerKey = pickerPosition ? `${pickerPosition.x},${pickerPosition.y}` : '';
@@ -65,7 +64,6 @@ export function GridCanvas({
           const heat = heatmap?.[y]?.[x] ?? 0;
           const intensity = maxHeat ? heat / maxHeat : 0;
           const isSelected = selected?.x === x && selected.y === y;
-          const inPath = pathSet.has(`${x},${y}`);
           const isPickAccess = pickAccessSet.has(`${x},${y}`);
           const isPicker = pickerKey === `${x},${y}`;
           const hasIssue = highlightSet.has(`${x},${y}`);
@@ -75,7 +73,7 @@ export function GridCanvas({
               type="button"
               data-coord={`${x},${y}`}
               title={`${cell.type} (${x},${y})`}
-              className={`cell ${isSelected ? 'selected' : ''} ${inPath ? 'path' : ''} ${isPickAccess ? 'pick-access-path' : ''} ${isPicker ? 'picker' : ''} ${hasIssue ? 'issue' : ''}`}
+              className={`cell ${isSelected ? 'selected' : ''} ${isPickAccess ? 'pick-access-path' : ''} ${isPicker ? 'picker' : ''} ${hasIssue ? 'issue' : ''}`}
               style={{
                 width: zoom,
                 height: zoom,
@@ -89,7 +87,7 @@ export function GridCanvas({
                 }
               }}
             >
-              {isPicker ? '●' : cell.type === 'PICK' ? 'P' : ''}
+              {visitCounts?.[`${x},${y}`] ? <span className="cell-visit-count">{visitCounts[`${x},${y}`]}</span> : cell.type === 'PICK' ? 'P' : ''}
             </button>
           );
         }),

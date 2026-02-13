@@ -22,7 +22,7 @@ export const defaultPlayerComparePreferences = (): PlayerComparePreferences => (
   runAId: undefined,
   runBId: undefined,
   palletIndex: 0,
-  speedMs: 250,
+  speedMs: 40,
   autoContinue: true,
 });
 
@@ -51,7 +51,7 @@ export const loadPlayerComparePreferences = (): PlayerComparePreferences => {
       runAId: raw.runAId,
       runBId: raw.runBId,
       palletIndex: Math.max(0, Math.floor(raw.palletIndex ?? 0)),
-      speedMs: Math.max(40, Math.floor(raw.speedMs ?? 250)),
+      speedMs: Math.max(40, Math.floor(raw.speedMs ?? 40)),
       autoContinue: Boolean(raw.autoContinue ?? true),
     };
   } catch {
