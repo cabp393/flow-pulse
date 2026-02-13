@@ -12,6 +12,12 @@ interface Props {
 export function ResultsPage({ layouts, runs, masters, onDeleteRun }: Props) {
   const [runId, setRunId] = useState<string>(runs[0]?.runId ?? '');
   const run = useMemo(() => runs.find((item) => item.runId === runId) ?? runs[0], [runId, runs]);
+  const runErrors = useMemo(() => {
+    if (!run) return [] as { palletId: string; issues: string[] }[];
+    return run.palletResults
+      .filter((item) => item.issues.length > 0)
+      .map((item) => ({ palletId: item.palletId, issues: item.issues }));
+  }, [run]);
   const masterName = masters.find((item) => item.skuMasterId === run?.skuMasterId)?.name ?? run?.skuMasterId;
   const layout = layouts.find((item) => item.layoutId === run?.layoutId);
 
@@ -26,6 +32,18 @@ export function ResultsPage({ layouts, runs, masters, onDeleteRun }: Props) {
       <p>SKU Master: {masterName}</p>
       <p>Total pallets: {run.summary.totalPallets} · OK/ERR: {run.summary.okPallets}/{run.summary.errorPallets} · Steps: {run.summary.totalSteps} · Avg: {run.summary.avgSteps.toFixed(2)}</p>
       <GridCanvas layout={layout} zoom={19} selectedTool="AISLE" onPaint={() => undefined} onSelect={() => undefined} heatmap={run.heatmapSteps} />
+      <section className="results-errors">
+        <h3>Errores de la run</h3>
+        {!runErrors.length && <p>Sin errores en pallets.</p>}
+        {runErrors.map((item) => (
+          <article key={item.palletId} className="results-error-card">
+            <strong>Pallet {item.palletId}</strong>
+            <ul>
+              {item.issues.map((issue, idx) => <li key={`${item.palletId}-${idx}`}>{issue}</li>)}
+            </ul>
+          </article>
+        ))}
+      </section>
     </div>
   );
 }

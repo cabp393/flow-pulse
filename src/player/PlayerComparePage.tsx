@@ -14,6 +14,18 @@ export function PlayerComparePage({
   prefs: PlayerComparePreferences;
   onChangePrefs: (prefs: PlayerComparePreferences) => void;
 }) {
+  const isPlayablePallet = (run: RunResult | undefined, palletId: string | undefined): boolean => {
+    if (!run || !palletId) return false;
+    const pallet = run.palletResults.find((item) => item.palletId === palletId);
+    if (!pallet) return false;
+    return pallet.issues.length === 0 && pallet.hasPath;
+  };
+
+  const getPalletSteps = (run: RunResult | undefined, palletId: string | undefined): number => {
+    if (!run || !palletId) return 0;
+    return run.palletResults.find((item) => item.palletId === palletId)?.steps ?? 0;
+  };
+
   const runA = useMemo(() => runs.find((r) => r.runId === prefs.runAId), [prefs.runAId, runs]);
   const runB = useMemo(() => runs.find((r) => r.runId === prefs.runBId), [prefs.runBId, runs]);
   const compatible = !runA || !runB || runA.layoutId === runB.layoutId;
@@ -22,8 +34,8 @@ export function PlayerComparePage({
   const palletCount = Math.max(runA?.palletOrder.length ?? 0, runB?.palletOrder.length ?? 0);
   const getMaxStepForIndex = (palletIndex: number): number => {
     const palletId = runA?.palletOrder[palletIndex] ?? runB?.palletOrder[palletIndex];
-    const stepsA = runA?.palletResults.find((item) => item.palletId === palletId)?.steps ?? 0;
-    const stepsB = runB?.palletResults.find((item) => item.palletId === palletId)?.steps ?? 0;
+    const stepsA = isPlayablePallet(runA, palletId) ? getPalletSteps(runA, palletId) : 0;
+    const stepsB = isPlayablePallet(runB, palletId) ? getPalletSteps(runB, palletId) : 0;
     return Math.max(stepsA, stepsB, 0);
   };
   const maxStep = getMaxStepForIndex(prefs.palletIndex);
@@ -49,6 +61,19 @@ export function PlayerComparePage({
   useEffect(() => {
     engine.setMaxStep(engineMaxStep);
   }, [engineMaxStep]);
+
+  useEffect(() => {
+    const palletId = runA?.palletOrder[engine.state.palletIndex] ?? runB?.palletOrder[engine.state.palletIndex];
+    const playableA = isPlayablePallet(runA, palletId);
+    const playableB = isPlayablePallet(runB, palletId);
+    if (engine.state.status !== 'playing') return;
+    if (playableA || playableB) return;
+    if (engine.state.palletIndex < Math.max(0, palletCount - 1)) {
+      engine.nextPallet();
+      return;
+    }
+    engine.stop();
+  }, [engine, palletCount, runA, runB, engine.state.palletIndex, engine.state.status]);
 
   useEffect(() => {
     if (engine.state.palletIndex !== prefs.palletIndex) {
@@ -81,7 +106,7 @@ export function PlayerComparePage({
         <label><input type="checkbox" checked={prefs.autoContinue} onChange={(e) => onChangePrefs({ ...prefs, autoContinue: e.target.checked })} /> autoContinue</label>
       </div>
       <p>Pallet: {engine.state.palletIndex + 1}/{Math.max(palletCount, 1)} · Step: {engine.state.stepIndex}</p>
-      {layout && <PlayerCompare layout={layout} runA={runA} runB={runB} palletIndex={engine.state.palletIndex} stepIndex={engine.state.stepIndex} />}
+      {layout && <PlayerCompare layout={layout} runA={runA} runB={runB} palletIndex={engine.state.palletIndex} stepIndex={engine.state.stepIndex} onlyPlayable />}
     </div>
   );
 }
