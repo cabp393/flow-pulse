@@ -18,11 +18,14 @@ import { ComparePage } from './compare/ComparePage';
 import { PlayerComparePage } from './player/PlayerComparePage';
 import { createNewLayout, duplicateLayout, getMaxLayouts, insertLayout, removeLayout, renameLayout, updateLayout } from './storage/layoutRepo';
 import { HomePage } from './pages/HomePage';
+import { duplicateSkuMaster, removeSkuMaster, renameSkuMaster } from './storage/skuMasterRepo';
+import { TopBar } from './components/TopBar';
 
 const tabs = ['home', 'layouts', 'layout-editor', 'sku', 'pallets', 'results', 'compare', 'player-compare'] as const;
 type Tab = (typeof tabs)[number];
 
 const topNavTabs: Array<{ id: Tab; label: string }> = [
+  { id: 'home', label: 'Home' },
   { id: 'layout-editor', label: 'Layout' },
   { id: 'sku', label: 'SKU' },
   { id: 'results', label: 'Heatmap' },
@@ -173,14 +176,7 @@ export function App() {
 
   return (
     <div className="app">
-      <header>
-        <h1>flowpulse</h1>
-        <nav>
-          {topNavTabs.map((item) => (
-            <button key={item.id} className={tab === item.id ? 'active' : ''} onClick={() => navigateTab(item.id)}>{item.label}</button>
-          ))}
-        </nav>
-      </header>
+      <TopBar tab={tab} tabs={topNavTabs} onNavigate={(item) => navigateTab(item as Tab)} />
 
       {tab === 'home' && (
         <HomePage
@@ -191,6 +187,46 @@ export function App() {
           runs={state.runs}
           onCreateRun={(run) => setState((s) => ({ ...s, runs: insertRun(s.runs, run) }))}
           onSelectLayout={(layoutId) => setState((s) => ({ ...s, activeLayoutId: layoutId }))}
+          onEditLayout={(layoutId) => {
+            setState((s) => ({ ...s, activeLayoutId: layoutId }));
+            navigateTab('layout-editor');
+          }}
+          onDuplicateLayout={(layoutId) => setState((s) => ({ ...s, layouts: duplicateLayout(s.layouts, layoutId) }))}
+          onRenameLayout={(layoutId, name) => setState((s) => ({ ...s, layouts: renameLayout(s.layouts, layoutId, name) }))}
+          onDeleteLayout={(layoutId) => setState((s) => {
+            const nextLayouts = removeLayout(s.layouts, layoutId);
+            return { ...s, layouts: nextLayouts, activeLayoutId: nextLayouts.some((l) => l.layoutId === s.activeLayoutId) ? s.activeLayoutId : nextLayouts[0]?.layoutId };
+          })}
+          onOpenSkuMaster={(skuMasterId) => {
+            setState((s) => ({ ...s, activeSkuMasterId: skuMasterId }));
+            navigateTab('sku');
+          }}
+          onDuplicateSkuMaster={(skuMasterId) => setState((s) => ({ ...s, skuMasters: duplicateSkuMaster(s.skuMasters, skuMasterId) }))}
+          onRenameSkuMaster={(skuMasterId, name) => setState((s) => ({ ...s, skuMasters: renameSkuMaster(s.skuMasters, skuMasterId, name) }))}
+          onDeleteSkuMaster={(skuMasterId) => setState((s) => ({
+            ...s,
+            skuMasters: removeSkuMaster(s.skuMasters, skuMasterId),
+            activeSkuMasterId: s.activeSkuMasterId === skuMasterId ? undefined : s.activeSkuMasterId,
+          }))}
+          onExportSkuMaster={exportSkuMaster}
+          onOpenRun={(runId) => {
+            setCompareRunAId(runId);
+            navigateTab('results');
+          }}
+          onOpenRunInCompare={(runId) => {
+            setCompareRunAId(runId);
+            if (compareRunBId === runId) setCompareRunBId(undefined);
+            navigateTab('compare');
+          }}
+          onOpenRunInPlayer={(runId) => {
+            setPlayerComparePrefs((prev) => ({ ...prev, runAId: runId }));
+            navigateTab('player-compare');
+          }}
+          onRenameRun={(runId, name) => setState((s) => ({
+            ...s,
+            runs: s.runs.map((run) => (run.runId === runId ? { ...run, name } : run)),
+          }))}
+          onDeleteRun={(runId) => setState((s) => ({ ...s, runs: removeRun(s.runs, runId) }))}
           onGoToLayouts={() => navigateTab('layouts')}
           onGoToSkuMasters={() => navigateTab('sku')}
           onGoToResults={() => navigateTab('results')}
@@ -219,7 +255,7 @@ export function App() {
       {tab === 'layout-editor' && <LayoutEditorPage layout={activeLayout} setLayout={setLayout} onEditorStateChange={setLayoutEditorState} />}
       {tab === 'sku' && activeLayout && <SkuMasterPage layout={activeLayout} masters={state.skuMasters} activeSkuMasterId={state.activeSkuMasterId} onChange={(skuMasters, activeSkuMasterId) => setState((s) => ({ ...s, skuMasters, activeSkuMasterId }))} onImport={importSkuMasters} onExport={exportSkuMasters} onExportOne={exportSkuMaster} />}
       {tab === 'pallets' && <PalletImportPage layouts={state.layouts} activeLayoutId={activeLayout?.layoutId} masters={state.skuMasters} activeSkuMasterId={state.activeSkuMasterId} onGeneratedRun={(run) => setState((s) => ({ ...s, runs: insertRun(s.runs, run) }))} onSelectLayout={(layoutId) => setState((s) => ({ ...s, activeLayoutId: layoutId }))} />}
-      {tab === 'results' && <ResultsPage layouts={state.layouts} runs={state.runs} masters={state.skuMasters} onDeleteRun={(runId) => setState((s) => ({ ...s, runs: removeRun(s.runs, runId) }))} />}
+      {tab === 'results' && <ResultsPage layouts={state.layouts} runs={state.runs} masters={state.skuMasters} selectedRunId={compareRunAId} onSelectRun={setCompareRunAId} onDeleteRun={(runId) => setState((s) => ({ ...s, runs: removeRun(s.runs, runId) }))} />}
       {tab === 'compare' && activeLayout && <ComparePage layout={activeLayout} runs={state.runs} runAId={compareRunAId} runBId={compareRunBId} onSelect={(a, b) => { setCompareRunAId(a); setCompareRunBId(b); setPlayerComparePrefs((prev) => ({ ...prev, runAId: a, runBId: b })); }} />}
       {tab === 'player-compare' && <PlayerComparePage layouts={state.layouts} runs={state.runs} prefs={playerComparePrefs} onChangePrefs={setPlayerComparePrefs} />}
     </div>

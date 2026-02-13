@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, type ChangeEvent } from 'react';
 import type { Layout, SkuMaster } from '../models/domain';
 import { parseSkuMasterCsv } from '../utils/parsers';
 import { createSkuMaster, duplicateSkuMaster, removeSkuMaster, updateSkuMaster } from '../storage/skuMasterRepo';
+import { ConfirmModal } from '../components/ConfirmModal';
 
 interface Props {
   layout: Layout;
@@ -27,6 +28,7 @@ export function SkuMasterPage({
   const [editingId, setEditingId] = useState<string>();
   const [error, setError] = useState('');
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string }>();
   const importInputRef = useRef<HTMLInputElement>(null);
 
   const validLocationIds = useMemo(() => {
@@ -126,11 +128,23 @@ export function SkuMasterPage({
               Duplicar
             </button>
             <button onClick={() => onExportOne(master.skuMasterId)}>Exportar</button>
-            <button onClick={() => onChange(removeSkuMaster(masters, master.skuMasterId), activeSkuMasterId === master.skuMasterId ? undefined : activeSkuMasterId)}>Eliminar</button>
+            <button onClick={() => setPendingDelete({ id: master.skuMasterId, name: master.name })}>Eliminar</button>
           </li>
         ))}
       </ul>
       {inconsistent.length > 0 && <p className="error">SKU master activo tiene {inconsistent.length} filas con locationIds no válidos.</p>}
+      <ConfirmModal
+        open={Boolean(pendingDelete)}
+        title="Confirmar eliminación"
+        description={`Esta acción eliminará "${pendingDelete?.name}".`}
+        onCancel={() => setPendingDelete(undefined)}
+        onConfirm={() => {
+          if (!pendingDelete) return;
+          onChange(removeSkuMaster(masters, pendingDelete.id), activeSkuMasterId === pendingDelete.id ? undefined : activeSkuMasterId);
+          setPendingDelete(undefined);
+        }}
+        danger
+      />
     </div>
   );
 }

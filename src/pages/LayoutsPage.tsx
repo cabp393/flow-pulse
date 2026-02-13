@@ -1,6 +1,7 @@
-import { useRef, type ChangeEvent } from 'react';
+import { useRef, useState, type ChangeEvent } from 'react';
 import type { Layout } from '../models/domain';
 import { getMaxLayouts } from '../storage/layoutRepo';
+import { ConfirmModal } from '../components/ConfirmModal';
 
 interface Props {
   layouts: Layout[];
@@ -31,6 +32,7 @@ export function LayoutsPage({
 }: Props) {
   const maxLayouts = getMaxLayouts();
   const importInputRef = useRef<HTMLInputElement>(null);
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string }>();
 
   const handleImportFile = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -77,10 +79,22 @@ export function LayoutsPage({
             <button onClick={() => onEdit(layout.layoutId)}>Editar</button>
             <button onClick={() => onDuplicate(layout.layoutId)} disabled={layouts.length >= maxLayouts}>Duplicar</button>
             <button onClick={() => onExportOne(layout.layoutId)}>Exportar</button>
-            <button onClick={() => onDelete(layout.layoutId)} disabled={layouts.length <= 1}>Eliminar</button>
+            <button onClick={() => setPendingDelete({ id: layout.layoutId, name: layout.name })} disabled={layouts.length <= 1}>Eliminar</button>
           </li>
         ))}
       </ul>
+      <ConfirmModal
+        open={Boolean(pendingDelete)}
+        title="Confirmar eliminación"
+        description={`Esta acción eliminará "${pendingDelete?.name}".`}
+        onCancel={() => setPendingDelete(undefined)}
+        onConfirm={() => {
+          if (!pendingDelete) return;
+          onDelete(pendingDelete.id);
+          setPendingDelete(undefined);
+        }}
+        danger
+      />
     </div>
   );
 }

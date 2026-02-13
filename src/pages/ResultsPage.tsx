@@ -1,16 +1,25 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Layout, RunResult, SkuMaster } from '../models/domain';
 import { GridCanvas } from '../ui/GridCanvas';
+import { ConfirmModal } from '../components/ConfirmModal';
 
 interface Props {
   layouts: Layout[];
   runs: RunResult[];
   masters: SkuMaster[];
+  selectedRunId?: string;
+  onSelectRun: (runId?: string) => void;
   onDeleteRun: (runId: string) => void;
 }
 
-export function ResultsPage({ layouts, runs, masters, onDeleteRun }: Props) {
-  const [runId, setRunId] = useState<string>(runs[0]?.runId ?? '');
+export function ResultsPage({ layouts, runs, masters, selectedRunId, onSelectRun, onDeleteRun }: Props) {
+  const [runId, setRunId] = useState<string>(selectedRunId ?? runs[0]?.runId ?? '');
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  useEffect(() => {
+    if (selectedRunId) setRunId(selectedRunId);
+  }, [selectedRunId]);
+
   const run = useMemo(() => runs.find((item) => item.runId === runId) ?? runs[0], [runId, runs]);
   const runErrors = useMemo(() => {
     if (!run) return [] as { palletId: string; issues: string[] }[];
@@ -27,8 +36,11 @@ export function ResultsPage({ layouts, runs, masters, onDeleteRun }: Props) {
   return (
     <div className="page">
       <h2>Runs</h2>
-      <label>Run<select value={run.runId} onChange={(e) => setRunId(e.target.value)}>{runs.map((item) => <option key={item.runId} value={item.runId}>{item.name}</option>)}</select></label>
-      <div className="toolbar"><button onClick={() => onDeleteRun(run.runId)}>Eliminar run actual</button></div>
+      <label>Run<select value={run.runId} onChange={(e) => {
+        setRunId(e.target.value);
+        onSelectRun(e.target.value || undefined);
+      }}>{runs.map((item) => <option key={item.runId} value={item.runId}>{item.name}</option>)}</select></label>
+      <div className="toolbar"><button onClick={() => setConfirmDelete(true)}>Eliminar run actual</button></div>
       <p>SKU Master: {masterName}</p>
       <p>Total pallets: {run.summary.totalPallets} · OK/ERR: {run.summary.okPallets}/{run.summary.errorPallets} · Steps: {run.summary.totalSteps} · Avg: {run.summary.avgSteps.toFixed(2)}</p>
       <GridCanvas layout={layout} zoom={19} selectedTool="AISLE" onPaint={() => undefined} onSelect={() => undefined} heatmap={run.heatmapSteps} />
@@ -44,6 +56,17 @@ export function ResultsPage({ layouts, runs, masters, onDeleteRun }: Props) {
           </article>
         ))}
       </section>
+      <ConfirmModal
+        open={confirmDelete}
+        title="Confirmar eliminación"
+        description={`Esta acción eliminará el run "${run.name}".`}
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={() => {
+          onDeleteRun(run.runId);
+          setConfirmDelete(false);
+        }}
+        danger
+      />
     </div>
   );
 }
