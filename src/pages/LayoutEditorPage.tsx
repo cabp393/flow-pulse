@@ -37,6 +37,7 @@ export function LayoutEditorPage({ layout, setLayout, onEditorStateChange }: Pro
   const [draftHeight, setDraftHeight] = useState(layout?.height ?? 1);
   const [toastMessage, setToastMessage] = useState<string>();
   const [showValidationModal, setShowValidationModal] = useState(false);
+  const [showValidationDetails, setShowValidationDetails] = useState(false);
   const [validationAttempted, setValidationAttempted] = useState(false);
 
   const {
@@ -63,22 +64,21 @@ export function LayoutEditorPage({ layout, setLayout, onEditorStateChange }: Pro
     if (!isDirty) {
       setValidationAttempted(false);
       setShowValidationModal(false);
+      setShowValidationDetails(false);
     }
   }, [isDirty]);
 
   const saveLayout = () => {
     if (!draft) return false;
     setValidationAttempted(true);
-    if (validation.errors.length > 0) {
-      setShowValidationModal(true);
-      return false;
-    }
 
     const committed = commitDraft();
     if (!committed) return false;
     setLayout(syncLayoutMetadata(committed));
-    setShowValidationModal(false);
-    setToastMessage('Layout guardado.');
+    const totalIssues = validation.errors.length + validation.warnings.length;
+    setShowValidationModal(totalIssues > 0);
+    setShowValidationDetails(false);
+    setToastMessage(totalIssues > 0 ? 'Layout guardado con issues pendientes.' : 'Layout guardado.');
     window.setTimeout(() => setToastMessage(undefined), 2200);
     return true;
   };
@@ -86,6 +86,7 @@ export function LayoutEditorPage({ layout, setLayout, onEditorStateChange }: Pro
   const discardLayoutChanges = () => {
     discardChanges();
     setShowValidationModal(false);
+    setShowValidationDetails(false);
     setValidationAttempted(false);
   };
 
@@ -153,7 +154,7 @@ export function LayoutEditorPage({ layout, setLayout, onEditorStateChange }: Pro
           onSelect={setSelected}
           selected={selected}
           focusCoord={focusCoord}
-          highlightedCells={showValidationModal ? issueCells : []}
+          highlightedCells={showValidationDetails ? issueCells : []}
         />
         <aside className="panel">
           {selected && selectedCell ? (
@@ -180,7 +181,12 @@ export function LayoutEditorPage({ layout, setLayout, onEditorStateChange }: Pro
         open={showValidationModal}
         errors={validation.errors}
         warnings={validation.warnings}
-        onClose={() => setShowValidationModal(false)}
+        showDetails={showValidationDetails}
+        onClose={() => {
+          setShowValidationModal(false);
+          setShowValidationDetails(false);
+        }}
+        onViewDetails={() => setShowValidationDetails(true)}
         onGoToCell={(cell) => {
           setSelected(cell);
           setFocusCoord(cell);

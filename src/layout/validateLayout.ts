@@ -75,10 +75,10 @@ export const validateLayout = (layout: Layout): LayoutValidationResult => {
   }
 
   if (canLeaveGrid(layout.movementRules)) {
-    errors.push({
+    warnings.push({
       id: 'movement-rules-outside-grid',
-      level: 'error',
-      message: 'movementRules globales permiten salir del grid. Deben estar todos en false.',
+      level: 'warning',
+      message: 'movementRules globales están en true, pero actualmente no se usan en el pathfinding.',
     });
   }
 

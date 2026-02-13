@@ -1,3 +1,4 @@
+import { useRef, type ChangeEvent } from 'react';
 import type { Layout } from '../models/domain';
 import { getMaxLayouts } from '../storage/layoutRepo';
 
@@ -10,14 +11,61 @@ interface Props {
   onRename: (layoutId: string, name: string) => void;
   onDelete: (layoutId: string) => void;
   onSelect: (layoutId: string) => void;
+  onExport: () => void;
+  onImport: (jsonPayload: string) => void;
 }
 
-export function LayoutsPage({ layouts, activeLayoutId, onCreate, onEdit, onDuplicate, onRename, onDelete, onSelect }: Props) {
+export function LayoutsPage({
+  layouts,
+  activeLayoutId,
+  onCreate,
+  onEdit,
+  onDuplicate,
+  onRename,
+  onDelete,
+  onSelect,
+  onExport,
+  onImport,
+}: Props) {
   const maxLayouts = getMaxLayouts();
+  const importInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportFile = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const payload = typeof reader.result === 'string' ? reader.result : '';
+      if (!payload.trim()) {
+        window.alert('El archivo está vacío.');
+      } else {
+        onImport(payload);
+      }
+      event.target.value = '';
+    };
+    reader.onerror = () => {
+      window.alert('No se pudo leer el archivo JSON.');
+      event.target.value = '';
+    };
+    reader.readAsText(file);
+  };
+
   return (
     <div className="page">
       <h2>Layouts</h2>
-      <button disabled={layouts.length >= maxLayouts} onClick={onCreate}>Crear layout</button>
+      <div className="toolbar">
+        <button disabled={layouts.length >= maxLayouts} onClick={onCreate}>Crear layout</button>
+        <button onClick={onExport} disabled={layouts.length === 0}>Exportar JSON</button>
+        <button type="button" onClick={() => importInputRef.current?.click()}>Importar JSON</button>
+        <input
+          ref={importInputRef}
+          type="file"
+          accept="application/json"
+          style={{ display: 'none' }}
+          onChange={handleImportFile}
+        />
+      </div>
       <p>{layouts.length}/{maxLayouts}</p>
       <ul className="sku-list">
         {layouts.map((layout) => (
