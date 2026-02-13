@@ -7,3 +7,5 @@ export const insertRun = (runs: RunResult[], run: RunResult): RunResult[] => [ru
 export const clearOldRuns = (runs: RunResult[], keep = 4): RunResult[] => runs.slice(0, keep);
 
 export const findRun = (runs: RunResult[], runId?: string): RunResult | undefined => runs.find((run) => run.runId === runId);
+
+export const removeRun = (runs: RunResult[], runId: string): RunResult[] => runs.filter((run) => run.runId !== runId);

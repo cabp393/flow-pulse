@@ -64,7 +64,7 @@ export function PalletImportPage({ layout, masters, activeSkuMasterId, batches, 
           const generated = selectedMasterIds
             .map((id) => masters.find((master) => master.skuMasterId === id))
             .filter(Boolean)
-            .map((master) => buildRun(layout, selectedBatch.palletBatchId, master!.skuMasterId, master!.mapping, selectedBatch.lines));
+            .map((master) => buildRun(layout, selectedBatch.palletBatchId, master!.skuMasterId, master!.name, master!.mapping, selectedBatch.lines));
           onGeneratedRuns(generated);
           setInfo(`Generados ${generated.length} runs`);
         }}
