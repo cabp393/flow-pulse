@@ -9,7 +9,7 @@ import { clearState, defaultPlayerComparePreferences, loadPlayerComparePreferenc
 import { insertRun, clearOldRuns, removeRun } from './storage/runRepo';
 import { ComparePage } from './compare/ComparePage';
 import { PlayerComparePage } from './player/PlayerComparePage';
-import { createNewLayout, duplicateLayout, insertLayout, removeLayout, renameLayout, updateLayout } from './storage/layoutRepo';
+import { createNewLayout, duplicateLayout, getMaxLayouts, insertLayout, removeLayout, renameLayout, updateLayout } from './storage/layoutRepo';
 
 const tabs = ['home', 'layouts', 'layout-editor', 'sku', 'pallets', 'results', 'compare', 'player-compare'] as const;
 type Tab = (typeof tabs)[number];
@@ -53,6 +53,61 @@ export function App() {
 
   const setLayout = (layout: Layout) => setState((s) => ({ ...s, layouts: updateLayout(s.layouts, layout) }));
 
+  const exportLayouts = () => {
+    const payload = JSON.stringify(state.layouts, null, 2);
+    const blob = new Blob([payload], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `flowpulse-layouts-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const importLayouts = (jsonPayload: string) => {
+    try {
+      const parsed = JSON.parse(jsonPayload);
+      if (!Array.isArray(parsed)) {
+        window.alert('Formato inválido: se esperaba un arreglo de layouts.');
+        return;
+      }
+
+      const importedLayouts = parsed.filter((item): item is Layout => (
+        item && typeof item === 'object'
+        && typeof item.layoutId === 'string'
+        && typeof item.name === 'string'
+        && typeof item.width === 'number'
+        && typeof item.height === 'number'
+        && Array.isArray(item.gridData)
+        && item.gridData.length === item.height
+      ));
+
+      if (!importedLayouts.length) {
+        window.alert('No se encontraron layouts válidos para importar.');
+        return;
+      }
+
+      setState((current) => {
+        const dedupedImported = importedLayouts.map((layout) => ({
+          ...layout,
+          layoutId: current.layouts.some((existing) => existing.layoutId === layout.layoutId) ? crypto.randomUUID() : layout.layoutId,
+        }));
+        const maxSlots = Math.max(0, getMaxLayouts() - current.layouts.length);
+        const selected = dedupedImported.slice(0, maxSlots);
+        if (!selected.length) {
+          window.alert('No hay espacio disponible para importar más layouts.');
+          return current;
+        }
+        const nextLayouts = [...selected, ...current.layouts];
+        return { ...current, layouts: nextLayouts, activeLayoutId: selected[0].layoutId };
+      });
+    } catch {
+      window.alert('JSON inválido.');
+    }
+  };
+
   const navigateTab = (next: Tab) => {
     if (tab === 'layout-editor' && next !== 'layout-editor' && layoutEditorState.isDirty) {
       const choice = window.prompt('Hay cambios sin guardar. Escribe: guardar | descartar | cancelar', 'guardar');
@@ -93,7 +148,7 @@ export function App() {
       }} onRename={(layoutId, name) => setState((s) => ({ ...s, layouts: renameLayout(s.layouts, layoutId, name) }))} onDelete={(layoutId) => setState((s) => {
         const nextLayouts = removeLayout(s.layouts, layoutId);
         return { ...s, layouts: nextLayouts, activeLayoutId: nextLayouts.some((l) => l.layoutId === s.activeLayoutId) ? s.activeLayoutId : nextLayouts[0]?.layoutId };
-      })} />}
+      })} onExport={exportLayouts} onImport={importLayouts} />}
       {tab === 'layout-editor' && <LayoutEditorPage layout={activeLayout} setLayout={setLayout} onEditorStateChange={setLayoutEditorState} />}
       {tab === 'sku' && activeLayout && <SkuMasterPage layout={activeLayout} masters={state.skuMasters} activeSkuMasterId={state.activeSkuMasterId} onChange={(skuMasters, activeSkuMasterId) => setState((s) => ({ ...s, skuMasters, activeSkuMasterId }))} />}
       {tab === 'pallets' && <PalletImportPage layouts={state.layouts} activeLayoutId={activeLayout?.layoutId} masters={state.skuMasters} activeSkuMasterId={state.activeSkuMasterId} onGeneratedRun={(run) => setState((s) => ({ ...s, runs: insertRun(s.runs, run) }))} onSelectLayout={(layoutId) => setState((s) => ({ ...s, activeLayoutId: layoutId }))} />}
