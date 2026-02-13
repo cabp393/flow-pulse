@@ -48,7 +48,17 @@ export function GridCanvas({
   useEffect(() => {
     if (!followCamera || !pickerPosition || !rootRef.current) return;
     const target = rootRef.current.querySelector<HTMLButtonElement>(`button[data-coord="${pickerKey}"]`);
-    target?.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
+    if (!target) return;
+
+    const container = rootRef.current;
+    const targetLeft = target.offsetLeft - container.clientWidth / 2 + target.clientWidth / 2;
+    const targetTop = target.offsetTop - container.clientHeight / 2 + target.clientHeight / 2;
+
+    container.scrollTo({
+      left: Math.max(0, targetLeft),
+      top: Math.max(0, targetTop),
+      behavior: 'smooth',
+    });
   }, [followCamera, pickerKey, pickerPosition]);
 
   useEffect(() => {
