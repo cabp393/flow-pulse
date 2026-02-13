@@ -19,12 +19,12 @@ export function ResultsPage({ layout, runs, masters, onDeleteRun }: Props) {
   return (
     <div className="page">
       <h2>Runs</h2>
-      <label>Run<select value={run.runId} onChange={(e) => setRunId(e.target.value)}>{runs.map((item) => <option key={item.runId} value={item.runId}>{item.runId}</option>)}</select></label>
+      <label>Run<select value={run.runId} onChange={(e) => setRunId(e.target.value)}>{runs.map((item) => <option key={item.runId} value={item.runId}>{item.name}</option>)}</select></label>
       <div className="toolbar">
         <button onClick={() => onDeleteRun(run.runId)}>Eliminar run actual</button>
       </div>
       <p>SKU Master: {masterName}</p>
-      <p>Total pallets: {run.summary.totalPallets} · Steps: {run.summary.totalSteps} · Avg: {run.summary.avgSteps.toFixed(2)}</p>
+      <p>Total pallets: {run.summary.totalPallets} · OK/ERR: {run.summary.okPallets}/{run.summary.errorPallets} · Steps: {run.summary.totalSteps} · Avg: {run.summary.avgSteps.toFixed(2)}</p>
       <GridCanvas layout={layout} zoom={19} selectedTool="AISLE" onPaint={() => undefined} onSelect={() => undefined} heatmap={run.heatmapSteps} />
     </div>
   );

@@ -1,8 +1,8 @@
 import type { RunResult } from '../models/domain';
 
-const MAX_RUNS = 12;
+const DEFAULT_MAX_RUNS = 10;
 
-export const insertRun = (runs: RunResult[], run: RunResult): RunResult[] => [run, ...runs].slice(0, MAX_RUNS);
+export const insertRun = (runs: RunResult[], run: RunResult, maxRuns = DEFAULT_MAX_RUNS): RunResult[] => [run, ...runs].slice(0, maxRuns);
 
 export const clearOldRuns = (runs: RunResult[], keep = 4): RunResult[] => runs.slice(0, keep);
 

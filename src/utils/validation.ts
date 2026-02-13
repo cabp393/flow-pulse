@@ -18,9 +18,6 @@ export const validateLayout = (layout: Layout): string[] => {
         if (!cell.pick?.locationId) errors.push(`PICK en (${x},${y}) sin locationId.`);
         if (cell.pick && pickIds.has(cell.pick.locationId)) errors.push(`locationId duplicado: ${cell.pick.locationId}`);
         if (cell.pick?.locationId) pickIds.add(cell.pick.locationId);
-        if (cell.pick?.sequence === undefined || Number.isNaN(cell.pick.sequence)) {
-          errors.push(`PICK ${cell.pick?.locationId ?? `(${x},${y})`} sin sequence válido.`);
-        }
         if (!cell.pick?.accessCell || !isInside(layout, cell.pick.accessCell)) {
           errors.push(`PICK ${cell.pick?.locationId ?? `(${x},${y})`} sin accessCell válido.`);
         } else {
