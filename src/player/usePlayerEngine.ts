@@ -46,6 +46,11 @@ export function usePlayerEngine({ maxStep, maxPallet, initialPalletIndex, initia
   const elapsedRef = useRef<number>(0);
   const mutableRef = useRef({ maxStep, maxPallet, autoContinue, speedMs: state.speedMs });
 
+  const resetTimingRefs = useCallback(() => {
+    lastRef.current = 0;
+    elapsedRef.current = 0;
+  }, []);
+
   useEffect(() => {
     mutableRef.current = { ...mutableRef.current, maxStep, maxPallet, autoContinue, speedMs: state.speedMs };
   }, [autoContinue, maxPallet, maxStep, state.speedMs]);
@@ -86,16 +91,31 @@ export function usePlayerEngine({ maxStep, maxPallet, initialPalletIndex, initia
   const api = useMemo<PlayerEngine>(() => ({
     state,
     setSpeedMs: (speed) => setState((prev) => ({ ...prev, speedMs: Math.max(40, Math.floor(speed)) })),
-    play: () => setState((prev) => ({ ...prev, status: 'playing' })),
+    play: () => {
+      resetTimingRefs();
+      setState((prev) => ({ ...prev, status: 'playing' }));
+    },
     pause: () => setState((prev) => ({ ...prev, status: 'paused' })),
-    stop: () => setState((prev) => ({ ...prev, status: 'stopped', stepIndex: 0 })),
-    nextPallet: () => setState((prev) => ({ ...prev, palletIndex: clamp(prev.palletIndex + 1, mutableRef.current.maxPallet), stepIndex: 0 })),
-    prevPallet: () => setState((prev) => ({ ...prev, palletIndex: clamp(prev.palletIndex - 1, mutableRef.current.maxPallet), stepIndex: 0 })),
+    stop: () => {
+      resetTimingRefs();
+      setState((prev) => ({ ...prev, status: 'stopped', stepIndex: 0 }));
+    },
+    nextPallet: () => {
+      resetTimingRefs();
+      setState((prev) => ({ ...prev, palletIndex: clamp(prev.palletIndex + 1, mutableRef.current.maxPallet), stepIndex: 0 }));
+    },
+    prevPallet: () => {
+      resetTimingRefs();
+      setState((prev) => ({ ...prev, palletIndex: clamp(prev.palletIndex - 1, mutableRef.current.maxPallet), stepIndex: 0 }));
+    },
     nextStep: () => setState((prev) => ({ ...prev, stepIndex: clamp(prev.stepIndex + 1, mutableRef.current.maxStep) })),
     prevStep: () => setState((prev) => ({ ...prev, stepIndex: clamp(prev.stepIndex - 1, mutableRef.current.maxStep) })),
-    setPalletIndex: (next) => setState((prev) => ({ ...prev, palletIndex: clamp(next, mutableRef.current.maxPallet), stepIndex: 0, status: 'stopped' })),
+    setPalletIndex: (next) => {
+      resetTimingRefs();
+      setState((prev) => ({ ...prev, palletIndex: clamp(next, mutableRef.current.maxPallet), stepIndex: 0, status: 'stopped' }));
+    },
     setMaxStep: (next) => setState((prev) => ({ ...prev, stepIndex: clamp(prev.stepIndex, next) })),
-  }), [state]);
+  }), [resetTimingRefs, state]);
 
   return api;
 }

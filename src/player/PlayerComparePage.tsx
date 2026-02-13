@@ -66,8 +66,10 @@ export function PlayerComparePage({
   });
 
   useEffect(() => {
-    engine.setPalletIndex(prefs.palletIndex);
-  }, [prefs.palletIndex]);
+    if (prefs.palletIndex !== engine.state.palletIndex) {
+      engine.setPalletIndex(prefs.palletIndex);
+    }
+  }, [engine.state.palletIndex, prefs.palletIndex]);
 
   useEffect(() => {
     engine.setSpeedMs(prefs.speedMs);
