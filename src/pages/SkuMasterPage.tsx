@@ -9,8 +9,7 @@ interface Props {
   masters: SkuMaster[];
   activeSkuMasterId?: string;
   onChange: (next: SkuMaster[], activeSkuMasterId?: string) => void;
-  onImport: (jsonPayload: string) => void;
-  onExport: () => void;
+  onImport: (csvPayload: string, layoutId?: string) => { ok: boolean; message: string };
   onExportOne: (skuMasterId: string) => void;
 }
 
@@ -20,7 +19,6 @@ export function SkuMasterPage({
   activeSkuMasterId,
   onChange,
   onImport,
-  onExport,
   onExportOne,
 }: Props) {
   const [text, setText] = useState('ubicacion,secuencia,sku');
@@ -53,12 +51,13 @@ export function SkuMasterPage({
       if (!payload.trim()) {
         window.alert('El archivo está vacío.');
       } else {
-        onImport(payload);
+        const result = onImport(payload, layout.layoutId);
+        if (!result.ok) window.alert(result.message);
       }
       event.target.value = '';
     };
     reader.onerror = () => {
-      window.alert('No se pudo leer el archivo JSON.');
+      window.alert('No se pudo leer el archivo CSV.');
       event.target.value = '';
     };
     reader.readAsText(file);
@@ -103,12 +102,11 @@ export function SkuMasterPage({
       <textarea value={text} onChange={(e) => setText(e.target.value)} rows={10} />
       <div className="toolbar">
         <button onClick={upsertFromText}>{editingId ? 'Guardar cambios' : 'Crear SKU Master'}</button>
-        <button onClick={onExport} disabled={masters.length === 0}>Exportar JSON</button>
-        <button type="button" onClick={() => importInputRef.current?.click()}>Importar JSON</button>
+        <button type="button" onClick={() => importInputRef.current?.click()}>Importar CSV</button>
         <input
           ref={importInputRef}
           type="file"
-          accept="application/json"
+          accept=".csv,text/csv"
           style={{ display: 'none' }}
           onChange={handleImportFile}
         />
@@ -127,7 +125,7 @@ export function SkuMasterPage({
             }}>
               Duplicar
             </button>
-            <button onClick={() => onExportOne(master.skuMasterId)}>Exportar</button>
+            <button onClick={() => onExportOne(master.skuMasterId)}>Exportar CSV</button>
             <button onClick={() => setPendingDelete({ id: master.skuMasterId, name: master.name })}>Eliminar</button>
           </li>
         ))}
