@@ -16,7 +16,7 @@ const offsets = [-1, 0, 1];
 
 export function LayoutEditorPage({ layout, setLayout }: Props) {
   const [tool, setTool] = useState<CellType>('AISLE');
-  const [zoom, setZoom] = useState(28);
+  const [zoom, setZoom] = useState(25);
   const [selected, setSelected] = useState<Coord>();
   const [draftWidth, setDraftWidth] = useState(layout.width);
   const [draftHeight, setDraftHeight] = useState(layout.height);

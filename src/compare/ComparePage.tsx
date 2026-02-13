@@ -16,8 +16,8 @@ export function ComparePage({ layout, runs, runAId, runBId, onSelect }: { layout
     <div className="page">
       <h2>Comparación de runs</h2>
       <div className="compare-grid-wrap">
-        <label>Run A<select value={runAId ?? ''} onChange={(e) => onSelect(e.target.value || undefined, runBId)}><option value="">--</option>{runs.map((run) => <option key={run.runId} value={run.runId}>{run.createdAt} · {run.skuMasterId}</option>)}</select></label>
-        <label>Run B<select value={runBId ?? ''} onChange={(e) => onSelect(runAId, e.target.value || undefined)}><option value="">--</option>{runs.map((run) => <option key={run.runId} value={run.runId}>{run.createdAt} · {run.skuMasterId}</option>)}</select></label>
+        <label>Run A<select value={runAId ?? ''} onChange={(e) => onSelect(e.target.value || undefined, runBId)}><option value="">--</option>{runs.map((run) => <option key={run.runId} value={run.runId}>{run.runId}</option>)}</select></label>
+        <label>Run B<select value={runBId ?? ''} onChange={(e) => onSelect(runAId, e.target.value || undefined)}><option value="">--</option>{runs.map((run) => <option key={run.runId} value={run.runId}>{run.runId}</option>)}</select></label>
       </div>
       <label><input type="checkbox" checked={sharedScale} onChange={(e) => setSharedScale(e.target.checked)} /> Escala de color compartida</label>
       {errors.length > 0 && <p className="error">No comparable: {errors.join(' | ')}</p>}

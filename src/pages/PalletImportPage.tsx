@@ -20,6 +20,14 @@ export function PalletImportPage({ layout, masters, activeSkuMasterId, batches, 
 
   const selectedBatch = useMemo(() => batches.find((item) => item.palletBatchId === selectedBatchId), [batches, selectedBatchId]);
 
+  const deleteSelectedBatch = () => {
+    if (!selectedBatch) return;
+    const nextBatches = batches.filter((batch) => batch.palletBatchId !== selectedBatch.palletBatchId);
+    onSaveBatches(nextBatches);
+    setSelectedBatchId(undefined);
+    setInfo(`Batch eliminado: ${selectedBatch.name}`);
+  };
+
   return (
     <div className="page">
       <h2>Run Builder</h2>
@@ -44,6 +52,9 @@ export function PalletImportPage({ layout, masters, activeSkuMasterId, batches, 
           {batches.map((batch) => <option key={batch.palletBatchId} value={batch.palletBatchId}>{batch.name} ({batch.lines.length})</option>)}
         </select>
       </label>
+      <div className="toolbar">
+        <button disabled={!selectedBatch} onClick={deleteSelectedBatch}>Eliminar batch seleccionado</button>
+      </div>
       <fieldset>
         <legend>SKU Masters a correr</legend>
         {masters.map((master) => (
