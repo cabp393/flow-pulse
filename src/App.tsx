@@ -5,14 +5,28 @@ import { LayoutsPage } from './pages/LayoutsPage';
 import { PalletImportPage } from './pages/PalletImportPage';
 import { ResultsPage } from './pages/ResultsPage';
 import { SkuMasterPage } from './pages/SkuMasterPage';
-import { clearState, defaultPlayerComparePreferences, loadPlayerComparePreferences, loadState, savePlayerComparePreferences, saveState } from './storage/localRepo';
+import {
+  clearState,
+  defaultPlayerComparePreferences,
+  loadPlayerComparePreferences,
+  loadState,
+  savePlayerComparePreferences,
+  saveState,
+} from './storage/localRepo';
 import { insertRun, clearOldRuns, removeRun } from './storage/runRepo';
 import { ComparePage } from './compare/ComparePage';
 import { PlayerComparePage } from './player/PlayerComparePage';
 import { createNewLayout, duplicateLayout, getMaxLayouts, insertLayout, removeLayout, renameLayout, updateLayout } from './storage/layoutRepo';
+import { HomePage } from './pages/HomePage';
 
 const tabs = ['home', 'layouts', 'layout-editor', 'sku', 'pallets', 'results', 'compare', 'player-compare'] as const;
 type Tab = (typeof tabs)[number];
+
+const topNavTabs: Array<{ id: Tab; label: string }> = [
+  { id: 'home', label: 'home' },
+  { id: 'layout-editor', label: 'edición' },
+  { id: 'results', label: 'visualización' },
+];
 
 const pathToTab = (pathname: string): Tab => {
   const clean = pathname.replace(/^\//, '');
@@ -111,11 +125,33 @@ export function App() {
       <header>
         <h1>flowpulse</h1>
         <nav>
-          {tabs.map((t) => <button key={t} className={tab === t ? 'active' : ''} onClick={() => navigateTab(t)}>{t}</button>)}
+          {topNavTabs.map((item) => (
+            <button key={item.id} className={tab === item.id ? 'active' : ''} onClick={() => navigateTab(item.id)}>{item.label}</button>
+          ))}
         </nav>
       </header>
 
-      {tab === 'home' && <div className="page"><h2>Proyecto</h2><p>Comparación de escenarios de picking con múltiples SKU Masters.</p><div className="toolbar"><button onClick={() => setState((s) => ({ ...s, runs: clearOldRuns(s.runs) }))}>Limpiar runs antiguos</button><button onClick={() => { clearState(); setState(loadState()); setPlayerComparePrefs(defaultPlayerComparePreferences()); }}>Reset localStorage</button></div></div>}
+      {tab === 'home' && (
+        <HomePage
+          layouts={state.layouts}
+          activeLayoutId={activeLayout?.layoutId}
+          skuMasters={state.skuMasters}
+          activeSkuMasterId={state.activeSkuMasterId}
+          runs={state.runs}
+          onCreateRun={(run) => setState((s) => ({ ...s, runs: insertRun(s.runs, run) }))}
+          onSelectLayout={(layoutId) => setState((s) => ({ ...s, activeLayoutId: layoutId }))}
+          onGoToLayouts={() => navigateTab('layouts')}
+          onGoToSkuMasters={() => navigateTab('sku')}
+          onGoToResults={() => navigateTab('results')}
+          onGoToEditor={() => navigateTab('layout-editor')}
+          onClearOldRuns={() => setState((s) => ({ ...s, runs: clearOldRuns(s.runs) }))}
+          onResetStorage={() => {
+            clearState();
+            setState(loadState());
+            setPlayerComparePrefs(defaultPlayerComparePreferences());
+          }}
+        />
+      )}
       {tab === 'layouts' && <LayoutsPage layouts={state.layouts} activeLayoutId={activeLayout?.layoutId} onCreate={() => {
         const next = createNewLayout(state.layouts);
         setState((s) => ({ ...s, layouts: insertLayout(s.layouts, next), activeLayoutId: next.layoutId }));
