@@ -1,0 +1,56 @@
+import { useEffect, useMemo, useState } from 'react';
+import { PlayerCompare } from '../components/PlayerCompare';
+import type { Layout, PalletBatch, PlayerComparePreferences, RunResult, SkuMaster } from '../models/domain';
+import { validateComparableRuns } from '../utils/compareUtils';
+
+export function PlayerComparePage({
+  layout,
+  runs,
+  masters,
+  batches,
+  prefs,
+  onChangePrefs,
+}: {
+  layout: Layout;
+  runs: RunResult[];
+  masters: SkuMaster[];
+  batches: PalletBatch[];
+  prefs: PlayerComparePreferences;
+  onChangePrefs: (prefs: PlayerComparePreferences) => void;
+}) {
+  const [status, setStatus] = useState<'idle' | 'playing' | 'paused'>('idle');
+  const runA = useMemo(() => runs.find((r) => r.runId === prefs.runAId), [prefs.runAId, runs]);
+  const runB = useMemo(() => runs.find((r) => r.runId === prefs.runBId), [prefs.runBId, runs]);
+  const errors = validateComparableRuns(runA, runB);
+  const palletCount = Math.max(runA?.palletOrder.length ?? 0, runB?.palletOrder.length ?? 0);
+
+  const [stepIndex, setStepIndex] = useState(0);
+
+  useEffect(() => {
+    if (status !== 'playing') return;
+    const timer = window.setTimeout(() => setStepIndex((s) => s + 1), prefs.speedMs);
+    return () => window.clearTimeout(timer);
+  }, [prefs.speedMs, status, stepIndex]);
+
+  useEffect(() => {
+    onChangePrefs(prefs);
+  }, [onChangePrefs, prefs]);
+
+  return (
+    <div className="page">
+      <h2>Player comparativo</h2>
+      {errors.length > 0 && <p className="error">No comparable: {errors.join(' | ')}</p>}
+      <div className="player-controls">
+        <button onClick={() => setStatus('playing')}>Play</button>
+        <button onClick={() => setStatus('paused')}>Pause</button>
+        <button onClick={() => { setStatus('idle'); setStepIndex(0); }}>Stop</button>
+        <button onClick={() => { setStepIndex(0); onChangePrefs({ ...prefs, palletIndex: Math.max(0, prefs.palletIndex - 1) }); }}>Prev pallet</button>
+        <button onClick={() => { setStepIndex(0); onChangePrefs({ ...prefs, palletIndex: Math.min(palletCount - 1, prefs.palletIndex + 1) }); }}>Next pallet</button>
+        <label>Velocidad(ms)<input type="number" value={prefs.speedMs} min={40} onChange={(e) => onChangePrefs({ ...prefs, speedMs: Number(e.target.value) || 250 })} /></label>
+        <label><input type="checkbox" checked={prefs.autoContinue} onChange={(e) => onChangePrefs({ ...prefs, autoContinue: e.target.checked })} /> autoContinue</label>
+      </div>
+      <p>Pallet: {prefs.palletIndex + 1}/{palletCount} · Step: {stepIndex}</p>
+      <PlayerCompare layout={layout} runA={runA} runB={runB} masters={masters} batches={batches} palletIndex={prefs.palletIndex} stepIndex={stepIndex} />
+    </div>
+  );
+}

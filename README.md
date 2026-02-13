@@ -1,65 +1,55 @@
-# flowpulse (MVP frontend)
+# flowpulse
 
-Aplicación web 100% frontend para diseñar layout de bodega, mapear SKUs, importar pallets desde XLSX y generar heatmap de recorridos.
+Aplicación React + TypeScript + Vite, 100% frontend y persistida en `localStorage`, para simular picking y comparar escenarios.
 
-## Stack
-- React + TypeScript + Vite
-- Persistencia en `localStorage` con versionado de esquema
-- Importación XLSX en navegador con `xlsx` (SheetJS)
-- Sin backend, sin DB, sin auth
-
-## Funcionalidades MVP
-- Editor de layout en grilla `W x H`.
-- Tipos de celda: `WALL`, `AISLE`, `PICK`, `START`, `END`.
-- Reglas direccionales por celda `AISLE` (`allowUp/Down/Left/Right`).
-- Propiedades PICK: `locationId`, `sequence`, `accessCell`.
-- Maestro SKU (`sku -> locationId`) por CSV o pegado.
-- Importación de pallets XLSX (`pallet_id`, `sku`), deduplicación por pallet.
-- Simulación con A* sobre grafo dirigido, issues de rutas imposibles.
-- Heatmap de pasos recorridos y detalle por pallet.
-- Player / Playback de recorridos pallet por pallet con controles de reproducción.
-- Export/Import JSON de estado completo.
-
-## Ejecutar
+## Comandos
 ```bash
 npm install
 npm run dev
-```
-
-## Build/Test
-```bash
 npm run build
 npm run test
 ```
 
+## Flujo nuevo: escenarios comparables
+1. **Layout**: arma un layout válido con 1 `START`, 1 `END`, y `PICK` con `accessCell` adyacente.
+2. **SKU Masters** (`/sku`): crea uno o varios masters (ej: `actual`, `reslotting-v2`) pegando/importando CSV.
+3. **Run Builder** (`/pallets`):
+   - importa un batch XLSX de pallets,
+   - selecciona uno o varios SKU Masters,
+   - click en **Generar Run** para crear runs por escenario.
+4. **Results** (`/results`): revisa heatmap y resumen de cada run.
+5. **Compare** (`/compare`): selecciona Run A y Run B para ver heatmaps lado a lado + deltas.
+6. **Player Compare** (`/player-compare`): playback sincronizado por pallet index entre ambos runs.
 
-## Player / Playback
-- Ir a pestaña **player** o usar **Ver en Player** desde **results** para abrir un pallet preseleccionado.
-- Controles: `Play`, `Pause`, `Stop`, `Prev Pallet`, `Next Pallet`.
-- Velocidad configurable por presets (`0.25x` a `~16x` según ms por paso), `auto continuar` y `seguir cámara`.
-- Indicadores: pallet actual, paso actual/total, stops visitados y tiempo estimado.
-- Persistencia (`localStorage`): último `runId`, `palletIndex`, velocidad, `autoContinue`, `followCamera`.
+## Reglas de comparación
+Los runs solo son comparables si tienen:
+- mismo `layoutVersionId`
+- mismo `palletBatchId`
+- mismo `routingParamsHash`
 
-Atajos sugeridos:
-- `Prev/Next Pallet` para saltar pallets con incidencias (sin path).
-- Activar `auto continuar` para ejecutar todos los pallets de corrido.
+## Persistencia
+- Clave principal: `flowpulse.state`
+- Preferencias player compare: `flowpulse.player.compare`
+- Se mantiene máximo de runs en memoria local (`MAX_RUNS`), con botón para limpiar runs antiguos.
 
-## Persistencia y schema
-- Clave localStorage: `flowpulse.state`
-- Versión de esquema actual: `1`
+## CSV de ejemplo SKU Master
+```csv
+sku,locationId
+SKU-1001,A-01-01
+SKU-1002,A-01-02
+SKU-1003,B-04-01
+```
 
-## Demo rápida
-1. Ir a pestaña **layout** y dibujar calles (`AISLE`), `START`, `END`, y `PICK`s.
-2. Cargar `samples/sku-master.csv` en pestaña **sku**.
-3. Crear XLSX con columnas `pallet_id,sku` usando `samples/pallets-template.csv` como base.
-4. Importar XLSX en **pallets** y click en **Generar heatmap**.
-5. Revisar **results** para heatmap y rutas por pallet.
+## Batch de ejemplo (para generar XLSX)
+```csv
+pallet_id,sku
+P-0001,SKU-1001
+P-0001,SKU-1003
+P-0002,SKU-1002
+P-0002,SKU-1001
+```
 
-## Estructura
-- `src/models`: tipos de dominio
-- `src/storage`: repositorio localStorage + migración
-- `src/routing`: grafo dirigido + A* + simulación + cache por tramo
-- `src/pages`: pantallas principales
-- `src/ui`: componentes visuales
-- `src/utils`: parsing, hash de layout y validaciones
-
+## Notas técnicas
+- No hay backend ni llamadas API.
+- El run persiste resumen + heatmap + orden de pallets + resultados compactos por pallet.
+- Las rutas del player comparativo se generan **on-demand** con cache en memoria por tramo.

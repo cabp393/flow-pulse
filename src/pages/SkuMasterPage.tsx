@@ -1,15 +1,19 @@
 import { useMemo, useState } from 'react';
-import type { Layout, SkuMap } from '../models/domain';
+import type { Layout, SkuMaster } from '../models/domain';
 import { parseSkuCsv } from '../utils/parsers';
+import { createSkuMaster, removeSkuMaster, updateSkuMaster } from '../storage/skuMasterRepo';
 
 interface Props {
   layout: Layout;
-  skuMap: SkuMap;
-  setSkuMap: (next: SkuMap) => void;
+  masters: SkuMaster[];
+  activeSkuMasterId?: string;
+  onChange: (next: SkuMaster[], activeSkuMasterId?: string) => void;
 }
 
-export function SkuMasterPage({ layout, skuMap, setSkuMap }: Props) {
+export function SkuMasterPage({ layout, masters, activeSkuMasterId, onChange }: Props) {
   const [text, setText] = useState('sku,locationId');
+  const [name, setName] = useState('');
+  const [editingId, setEditingId] = useState<string>();
   const [error, setError] = useState('');
 
   const validLocationIds = useMemo(() => {
@@ -20,31 +24,24 @@ export function SkuMasterPage({ layout, skuMap, setSkuMap }: Props) {
     return ids;
   }, [layout]);
 
-  const inconsistent = Object.entries(skuMap).filter(([, loc]) => !validLocationIds.has(loc));
-  const sortedEntries = Object.entries(skuMap).sort(([a], [b]) => a.localeCompare(b));
+  const current = masters.find((item) => item.skuMasterId === editingId) ?? masters.find((item) => item.skuMasterId === activeSkuMasterId);
 
-  const asExcelSafeCsvText = (value: string) => `\t${value}`;
+  const inconsistent = current ? Object.entries(current.mapping).filter(([, loc]) => !validLocationIds.has(loc)) : [];
 
-  const exportSkuMaster = () => {
-    const rows = [
-      'sku,locationId',
-      ...sortedEntries.map(([sku, locationId]) => `${asExcelSafeCsvText(sku)},${asExcelSafeCsvText(locationId)}`),
-    ];
-    const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'flowpulse-sku-master.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const importSkuFile = async (file?: File) => {
-    if (!file) return;
+  const upsertFromText = () => {
     try {
-      const imported = parseSkuCsv(await file.text());
-      setSkuMap({ ...skuMap, ...imported });
+      const mapping = parseSkuCsv(text);
+      if (editingId) {
+        const target = masters.find((item) => item.skuMasterId === editingId);
+        if (!target) return;
+        onChange(updateSkuMaster(masters, { ...target, name: name || target.name, mapping: { ...target.mapping, ...mapping } }), activeSkuMasterId);
+      } else {
+        const next = createSkuMaster(name || `SKU Master ${masters.length + 1}`, mapping);
+        onChange([next, ...masters], next.skuMasterId);
+      }
       setError('');
+      setName('');
+      setEditingId(undefined);
     } catch (err) {
       setError((err as Error).message);
     }
@@ -52,73 +49,24 @@ export function SkuMasterPage({ layout, skuMap, setSkuMap }: Props) {
 
   return (
     <div className="page">
-      <h2>Maestro SKU</h2>
-      <p>Pega CSV con columnas sku,locationId.</p>
+      <h2>SKU Masters</h2>
+      <input placeholder="Nombre SKU master" value={name} onChange={(e) => setName(e.target.value)} />
       <textarea value={text} onChange={(e) => setText(e.target.value)} rows={8} />
       <div className="toolbar">
-        <button
-          onClick={() => {
-            try {
-              const imported = parseSkuCsv(text);
-              setSkuMap({ ...skuMap, ...imported });
-              setError('');
-            } catch (err) {
-              setError((err as Error).message);
-            }
-          }}
-        >
-          Importar CSV/Pegado (merge)
-        </button>
-        <button onClick={() => setSkuMap({})} disabled={!sortedEntries.length}>
-          Borrar todos
-        </button>
-        <button onClick={exportSkuMaster} disabled={!sortedEntries.length}>
-          Exportar CSV
-        </button>
-        <label className="file-btn">
-          Importar CSV
-          <input type="file" accept=".csv,text/csv" onChange={(e) => void importSkuFile(e.target.files?.[0])} />
-        </label>
+        <button onClick={upsertFromText}>{editingId ? 'Guardar cambios' : 'Crear SKU Master'}</button>
       </div>
       {error && <p className="error">{error}</p>}
-      <p>Total SKUs: {Object.keys(skuMap).length}</p>
-      {inconsistent.length > 0 && (
-        <div className="error">
-          <p>Inconsistencias con layout:</p>
-          <ul>
-            {inconsistent.map(([sku, loc]) => (
-              <li key={sku}>
-                {sku} → {loc} no existe en layout
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      <h3>SKUs cargados</h3>
-      {sortedEntries.length ? (
-        <ul className="sku-list">
-          {sortedEntries.map(([sku, locationId]) => (
-            <li key={sku}>
-              <span>
-                <strong>{sku}</strong> → {locationId}
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  const next = { ...skuMap };
-                  delete next[sku];
-                  setSkuMap(next);
-                }}
-              >
-                Borrar
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>No hay SKUs cargados.</p>
-      )}
+      <ul className="sku-list">
+        {masters.map((master) => (
+          <li key={master.skuMasterId}>
+            <span><strong>{master.name}</strong> ({Object.keys(master.mapping).length} SKUs)</span>
+            <button onClick={() => onChange(masters, master.skuMasterId)}>{activeSkuMasterId === master.skuMasterId ? 'Activo' : 'Activar'}</button>
+            <button onClick={() => { setEditingId(master.skuMasterId); setName(master.name); setText(['sku,locationId', ...Object.entries(master.mapping).map(([sku, loc]) => `${sku},${loc}`)].join('\n')); }}>Editar</button>
+            <button onClick={() => onChange(removeSkuMaster(masters, master.skuMasterId), activeSkuMasterId === master.skuMasterId ? undefined : activeSkuMasterId)}>Eliminar</button>
+          </li>
+        ))}
+      </ul>
+      {inconsistent.length > 0 && <p className="error">SKU master activo tiene {inconsistent.length} locationIds no válidos.</p>}
     </div>
   );
 }
