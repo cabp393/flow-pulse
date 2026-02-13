@@ -18,7 +18,7 @@ export function PlayerComparePage({
     if (!run || !palletId) return false;
     const pallet = run.palletResults.find((item) => item.palletId === palletId);
     if (!pallet) return false;
-    return pallet.issues.length === 0 && pallet.hasPath;
+    return pallet.hasPath && pallet.stops.length > 0;
   };
 
   const getPalletSteps = (run: RunResult | undefined, palletId: string | undefined): number => {

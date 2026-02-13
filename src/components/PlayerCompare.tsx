@@ -10,12 +10,12 @@ const isPlayablePallet = (run: RunResult | undefined, palletId: string): boolean
   if (!run) return false;
   const pallet = run.palletResults.find((item) => item.palletId === palletId);
   if (!pallet) return false;
-  return pallet.issues.length === 0 && pallet.hasPath;
+  return pallet.hasPath && pallet.stops.length > 0;
 };
 
 const buildPath = (layout: Layout, run: RunResult, palletId: string): Coord[] => {
   const pallet = run.palletResults.find((item) => item.palletId === palletId);
-  if (!pallet || pallet.issues.length > 0 || !pallet.hasPath) return [];
+  if (!pallet || !pallet.hasPath || pallet.stops.length === 0) return [];
   const start = findSingleCell(layout, 'START');
   const end = findSingleCell(layout, 'END');
   if (!start || !end) return [];
