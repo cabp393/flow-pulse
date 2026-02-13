@@ -10,17 +10,68 @@ npm run build
 npm run test
 ```
 
+## Navegación principal
+- `Home` (`/`): run builder + listas compactas de layouts, SKU masters y runs.
+- `Layout` (`/layout-editor`): edición del layout activo sobre draft en memoria.
+- `SKU` (`/sku`): edición manual de SKU master con CSV pegado/importado.
+- `Heatmap` (`/results`): métricas + heatmap por run.
+- `Comparar` (`/compare`) y `Player` (`/player-compare`).
+- `Avanzado` (`/advanced`): utilidades de mantenimiento, import/export y acciones destructivas.
+
 ## Flujo
-1. **Layouts** (`/layouts`): crear, duplicar, renombrar, eliminar y seleccionar layout activo (máximo 10).
-2. **Layout Editor** (`/layout-editor`): editar sobre un **draft en memoria** del layout seleccionado.
-   - Botones: `Guardar layout`, `Descartar cambios`, `Revertir a último guardado`.
-   - El badge **Cambios sin guardar** aparece cuando el draft difiere del layout persistido.
-   - El badge **Validación pendiente** aparece durante edición (sin detalle de errores).
-   - Las validaciones completas corren **solo al guardar**.
-3. **SKU Master** (`/sku`): importar CSV obligatorio `ubicacion,secuencia,sku`.
-4. **Run Builder** (`/pallets`): seleccionar layout + SKU Master, cargar XLSX (`pallet_id,sku`) y generar run (máximo 20 runs persistidos).
-5. **Results** (`/results`): revisar métricas y heatmap por run.
-6. **Player Compare** (`/player-compare`): seleccionar Run A y Run B para playback sincronizado.
+1. Crear o ajustar layout válido.
+2. Cargar/editar SKU master.
+3. Cargar XLSX de pallets (`pallet_id,sku`) y generar run.
+4. Revisar resultados/heatmap o comparar runs.
+
+## Menú Avanzado (`/advanced`)
+Incluye acciones compactas con confirmación modal en acciones destructivas:
+- **Exportar Layout (JSON)** con selector de layout.
+- **Importar Layout (JSON)** validando estructura mínima.
+- **Exportar SKU Master (CSV)** con selector.
+- **Importar SKU Master (CSV)** con validación opcional contra layout.
+- **Limpiar runs antiguos** (confirm modal).
+- **Reset completo localStorage** (confirm modal).
+
+## Formatos de import/export
+
+### Layout export JSON
+Archivo descargado como:
+`flowpulse_layout_<layoutName>_<YYYY-MM-DD_HHmm>.json`
+
+Contiene todo lo necesario para reconstrucción:
+- `layoutId`, `name`, `createdAt`
+- `width`, `height`
+- `gridData`
+- `movementRules`
+- `startCell`, `endCell`
+- metadata de picks (`locationId`, `accessCell`) dentro de cada celda PICK
+
+### Layout import JSON (validaciones)
+- Debe ser objeto JSON (o arreglo, se usa el primer layout).
+- `width`/`height` positivos y consistentes con `gridData`.
+- `startCell` y `endCell` obligatorios.
+- `movementRules` requerido.
+- Si `layoutId` colisiona, se crea uno nuevo.
+- Si `name` colisiona, se renombra con sufijo ` (importado)` incremental.
+
+### SKU Master export CSV
+Archivo descargado como:
+`flowpulse_skumaster_<name>_<YYYY-MM-DD_HHmm>.csv`
+
+Columnas exactas en salida:
+```csv
+ubicacion,secuencia,sku
+```
+
+### SKU Master import CSV (validaciones)
+- Acepta header en cualquier orden si contiene `ubicacion`, `secuencia`, `sku`.
+- Si no hay header, asume orden fijo: `ubicacion,secuencia,sku`.
+- `ubicacion`: string no vacío.
+- `secuencia`: numérica.
+- `sku`: no vacío.
+- Duplicados `sku+ubicacion` se omiten con warning.
+- Si se selecciona layout para validar, cada `ubicacion` debe existir como `locationId` PICK en dicho layout.
 
 ## Validaciones de layout (al presionar Guardar layout)
 - Debe existir exactamente 1 `START` y 1 `END`.
@@ -33,25 +84,7 @@ npm run test
 - `movementRules` globales no deben habilitar salida del grid.
 - Warning opcional: picks inaccesibles desde `START` en el grafo dirigido.
 
-Si falla el guardado, se abre un modal con errores/warnings y acción **Ir a celda** para centrar/seleccionar celdas problemáticas.
-
 ## Persistencia
 - Clave principal: `flowpulse.state`
 - Preferencias player compare: `flowpulse.player.compare`
-- Sin migraciones legacy: si el esquema no coincide, inicia estado limpio.
-
-## CSV SKU Master (obligatorio)
-```csv
-ubicacion,secuencia,sku
-A01-01-01,10,SKU123
-A01-01-02,20,SKU123
-B02-03-01,30,SKU456
-```
-
-## Batch de ejemplo (para generar XLSX)
-```csv
-pallet_id,sku
-P-0001,SKU123
-P-0001,SKU456
-P-0002,SKU123
-```
+- Sin backend ni API: todo local en navegador.

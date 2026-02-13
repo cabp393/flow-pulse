@@ -16,6 +16,7 @@ interface Props {
   onDuplicateLayout: (layoutId: string) => void;
   onRenameLayout: (layoutId: string, name: string) => void;
   onDeleteLayout: (layoutId: string) => void;
+  onExportLayout: (layoutId: string) => void;
   onOpenSkuMaster: (skuMasterId: string) => void;
   onDuplicateSkuMaster: (skuMasterId: string) => void;
   onRenameSkuMaster: (skuMasterId: string, name: string) => void;
@@ -26,20 +27,13 @@ interface Props {
   onOpenRunInPlayer: (runId: string) => void;
   onRenameRun: (runId: string, name: string) => void;
   onDeleteRun: (runId: string) => void;
-  onGoToLayouts: () => void;
-  onGoToSkuMasters: () => void;
   onGoToResults: () => void;
-  onGoToEditor: () => void;
-  onClearOldRuns: () => void;
-  onResetStorage: () => void;
 }
 
 type ConfirmState =
   | { kind: 'layout'; id: string; name: string }
   | { kind: 'sku'; id: string; name: string }
   | { kind: 'run'; id: string; name: string }
-  | { kind: 'clear-runs' }
-  | { kind: 'reset' }
   | undefined;
 
 const formatStorageSize = (payload: unknown): string => {
@@ -74,6 +68,7 @@ export function HomePage({
   onDuplicateLayout,
   onRenameLayout,
   onDeleteLayout,
+  onExportLayout,
   onOpenSkuMaster,
   onDuplicateSkuMaster,
   onRenameSkuMaster,
@@ -84,23 +79,15 @@ export function HomePage({
   onOpenRunInPlayer,
   onRenameRun,
   onDeleteRun,
-  onGoToLayouts,
-  onGoToSkuMasters,
   onGoToResults,
-  onGoToEditor,
-  onClearOldRuns,
-  onResetStorage,
 }: Props) {
   const [confirmState, setConfirmState] = useState<ConfirmState>();
-  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const confirmAction = () => {
     if (!confirmState) return;
     if (confirmState.kind === 'layout') onDeleteLayout(confirmState.id);
     if (confirmState.kind === 'sku') onDeleteSkuMaster(confirmState.id);
     if (confirmState.kind === 'run') onDeleteRun(confirmState.id);
-    if (confirmState.kind === 'clear-runs') onClearOldRuns();
-    if (confirmState.kind === 'reset') onResetStorage();
     setConfirmState(undefined);
   };
 
@@ -129,6 +116,7 @@ export function HomePage({
                 <>
                   <InlineIconButton icon="pencil" title="Editar layout" onClick={() => onEditLayout(layout.layoutId)} />
                   <InlineIconButton icon="copy" title="Duplicar layout" onClick={() => onDuplicateLayout(layout.layoutId)} />
+                  <InlineIconButton icon="download" title="Exportar layout" onClick={() => onExportLayout(layout.layoutId)} />
                   <InlineIconButton icon="rename" title="Renombrar layout" onClick={() => {
                     const next = window.prompt('Nuevo nombre del layout', layout.name);
                     if (next && next.trim()) onRenameLayout(layout.layoutId, next.trim());
@@ -139,7 +127,6 @@ export function HomePage({
             />
           ))}
         </ul>
-        <div className="toolbar"><button onClick={onGoToLayouts}>Gestión avanzada</button><button onClick={onGoToEditor}>Editor layout activo</button></div>
       </section>
 
       <section className="page home-section">
@@ -165,7 +152,6 @@ export function HomePage({
             />
           ))}
         </ul>
-        <div className="toolbar"><button onClick={onGoToSkuMasters}>Gestión avanzada</button></div>
       </section>
 
       <section className="page home-section">
@@ -192,26 +178,12 @@ export function HomePage({
           ))}
         </ul>
         <div className="toolbar"><button onClick={onGoToResults}>Vista Heatmap</button></div>
-
-        <details open={advancedOpen} onToggle={(event) => setAdvancedOpen((event.target as HTMLDetailsElement).open)}>
-          <summary>Avanzado</summary>
-          <div className="toolbar">
-            <button onClick={() => setConfirmState({ kind: 'clear-runs' })}>Limpiar runs antiguos</button>
-            <button className="danger" onClick={() => setConfirmState({ kind: 'reset' })}>Reset localStorage</button>
-          </div>
-        </details>
       </section>
 
       <ConfirmModal
         open={Boolean(confirmState)}
         title="Confirmar eliminación"
-        description={
-          confirmState?.kind === 'reset'
-            ? 'Se borrarán Layouts, SKU Masters y Runs del localStorage.'
-            : confirmState?.kind === 'clear-runs'
-              ? 'Se eliminarán los runs antiguos guardados.'
-              : `Esta acción eliminará "${confirmState?.name}".`
-        }
+        description={`Esta acción eliminará "${confirmState?.name}".`}
         confirmLabel="Confirmar"
         cancelLabel="Cancelar"
         onCancel={() => setConfirmState(undefined)}
