@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Coord, RunPalletResult } from '../models/domain';
 
 type EngineStatus = 'playing' | 'paused' | 'stopped' | 'finished';
 
 interface Options {
-  pallets: RunPalletResult[];
+  maxStep: number;
+  maxPallet: number;
   initialPalletIndex: number;
   initialSpeedMs: number;
   autoContinue: boolean;
@@ -15,9 +15,6 @@ interface EngineState {
   stepIndex: number;
   speedMs: number;
   status: EngineStatus;
-  currentPath: Coord[];
-  currentPallet?: RunPalletResult;
-  missingPath: boolean;
 }
 
 export interface PlayerEngine {
@@ -28,175 +25,77 @@ export interface PlayerEngine {
   stop: () => void;
   nextPallet: () => void;
   prevPallet: () => void;
+  nextStep: () => void;
+  prevStep: () => void;
   setPalletIndex: (next: number) => void;
+  setMaxStep: (next: number) => void;
 }
 
-const clampIndex = (index: number, size: number): number => {
-  if (size <= 0) return 0;
-  return Math.min(Math.max(0, index), size - 1);
-};
+const clamp = (value: number, max: number): number => Math.max(0, Math.min(value, Math.max(0, max)));
 
-export function usePlayerEngine({ pallets, initialPalletIndex, initialSpeedMs, autoContinue }: Options): PlayerEngine {
-  const [palletIndex, setPalletIndexState] = useState(() => clampIndex(initialPalletIndex, pallets.length));
-  const [stepIndex, setStepIndex] = useState(0);
-  const [speedMs, setSpeedMs] = useState(Math.max(40, initialSpeedMs));
-  const [status, setStatus] = useState<EngineStatus>('stopped');
+export function usePlayerEngine({ maxStep, maxPallet, initialPalletIndex, initialSpeedMs, autoContinue }: Options): PlayerEngine {
+  const [state, setState] = useState<EngineState>({
+    palletIndex: clamp(initialPalletIndex, maxPallet),
+    stepIndex: 0,
+    speedMs: Math.max(40, initialSpeedMs),
+    status: 'stopped',
+  });
 
-  const rafRef = useRef<number | null>(null);
-  const speedRef = useRef(speedMs);
-  const statusRef = useRef(status);
-  const autoContinueRef = useRef(autoContinue);
-  const frameElapsedRef = useRef(0);
-  const frameLastTsRef = useRef<number | null>(null);
+  const frameRef = useRef<number>();
+  const lastRef = useRef<number>(0);
+  const elapsedRef = useRef<number>(0);
+  const mutableRef = useRef({ maxStep, maxPallet, autoContinue, speedMs: state.speedMs });
 
   useEffect(() => {
-    autoContinueRef.current = autoContinue;
-  }, [autoContinue]);
+    mutableRef.current = { ...mutableRef.current, maxStep, maxPallet, autoContinue, speedMs: state.speedMs };
+  }, [autoContinue, maxPallet, maxStep, state.speedMs]);
 
-  useEffect(() => {
-    speedRef.current = speedMs;
-  }, [speedMs]);
+  const tick = useCallback((timestamp: number) => {
+    frameRef.current = window.requestAnimationFrame(tick);
+    if (lastRef.current === 0) lastRef.current = timestamp;
+    const delta = timestamp - lastRef.current;
+    lastRef.current = timestamp;
 
-  useEffect(() => {
-    statusRef.current = status;
-  }, [status]);
+    setState((prev) => {
+      if (prev.status !== 'playing') return prev;
+      const { speedMs, maxStep: currentMaxStep, maxPallet: currentMaxPallet, autoContinue: continueNext } = mutableRef.current;
+      elapsedRef.current += delta;
+      if (elapsedRef.current < speedMs) return prev;
+      elapsedRef.current = 0;
 
-  useEffect(() => {
-    setPalletIndexState((prev) => clampIndex(prev, pallets.length));
-  }, [pallets.length]);
-
-  const setPalletIndex = useCallback(
-    (next: number) => {
-      setPalletIndexState(clampIndex(next, pallets.length));
-      setStepIndex(0);
-      setStatus('stopped');
-    },
-    [pallets.length],
-  );
-
-  const currentPallet = pallets[palletIndex];
-  const currentPath = currentPallet?.visited ?? [];
-  const missingPath = !currentPath.length;
-
-  const movePallet = useCallback(
-    (direction: -1 | 1): boolean => {
-      if (!pallets.length) return false;
-      const next = clampIndex(palletIndex + direction, pallets.length);
-      if (next === palletIndex) return false;
-      setPalletIndexState(next);
-      setStepIndex(0);
-      return true;
-    },
-    [palletIndex, pallets.length],
-  );
-
-  const animate = useCallback(
-    (ts: number) => {
-      if (statusRef.current !== 'playing') {
-        frameLastTsRef.current = null;
-        frameElapsedRef.current = 0;
-        return;
+      if (prev.stepIndex < currentMaxStep) {
+        return { ...prev, stepIndex: prev.stepIndex + 1 };
       }
 
-      const lastTs = frameLastTsRef.current ?? ts;
-      frameLastTsRef.current = ts;
-      frameElapsedRef.current += ts - lastTs;
-
-      const pathLen = currentPath.length;
-      if (pathLen <= 1) {
-        if (autoContinueRef.current && palletIndex < pallets.length - 1) {
-          setPalletIndexState((idx) => clampIndex(idx + 1, pallets.length));
-          setStepIndex(0);
-          frameElapsedRef.current = 0;
-          frameLastTsRef.current = ts;
-        } else {
-          setStatus('finished');
-        }
-        return;
+      if (continueNext && prev.palletIndex < currentMaxPallet) {
+        return { ...prev, palletIndex: prev.palletIndex + 1, stepIndex: 0 };
       }
 
-      let consumedSteps = 0;
-      const interval = speedRef.current;
-      while (frameElapsedRef.current >= interval) {
-        frameElapsedRef.current -= interval;
-        consumedSteps += 1;
-      }
-
-      if (!consumedSteps) return;
-
-      setStepIndex((prev) => {
-        const tentative = prev + consumedSteps;
-        if (tentative < pathLen - 1) return tentative;
-
-        if (autoContinueRef.current && palletIndex < pallets.length - 1) {
-          setPalletIndexState((idx) => clampIndex(idx + 1, pallets.length));
-          frameElapsedRef.current = 0;
-          frameLastTsRef.current = ts;
-          return 0;
-        }
-
-        setStatus(autoContinueRef.current ? 'finished' : 'paused');
-        return pathLen - 1;
-      });
-    },
-    [currentPath.length, palletIndex, pallets.length],
-  );
+      return { ...prev, status: 'finished' };
+    });
+  }, []);
 
   useEffect(() => {
-    const loop = (ts: number) => {
-      animate(ts);
-      rafRef.current = window.requestAnimationFrame(loop);
-    };
-
-    rafRef.current = window.requestAnimationFrame(loop);
-
+    if (frameRef.current) window.cancelAnimationFrame(frameRef.current);
+    frameRef.current = window.requestAnimationFrame(tick);
     return () => {
-      if (rafRef.current !== null) {
-        window.cancelAnimationFrame(rafRef.current);
-      }
+      if (frameRef.current) window.cancelAnimationFrame(frameRef.current);
     };
-  }, [animate]);
+  }, [tick]);
 
-  useEffect(() => {
-    setStepIndex(0);
-    if (statusRef.current === 'finished') setStatus('stopped');
-  }, [palletIndex]);
+  const api = useMemo<PlayerEngine>(() => ({
+    state,
+    setSpeedMs: (speed) => setState((prev) => ({ ...prev, speedMs: Math.max(40, Math.floor(speed)) })),
+    play: () => setState((prev) => ({ ...prev, status: 'playing' })),
+    pause: () => setState((prev) => ({ ...prev, status: 'paused' })),
+    stop: () => setState((prev) => ({ ...prev, status: 'stopped', stepIndex: 0 })),
+    nextPallet: () => setState((prev) => ({ ...prev, palletIndex: clamp(prev.palletIndex + 1, mutableRef.current.maxPallet), stepIndex: 0 })),
+    prevPallet: () => setState((prev) => ({ ...prev, palletIndex: clamp(prev.palletIndex - 1, mutableRef.current.maxPallet), stepIndex: 0 })),
+    nextStep: () => setState((prev) => ({ ...prev, stepIndex: clamp(prev.stepIndex + 1, mutableRef.current.maxStep) })),
+    prevStep: () => setState((prev) => ({ ...prev, stepIndex: clamp(prev.stepIndex - 1, mutableRef.current.maxStep) })),
+    setPalletIndex: (next) => setState((prev) => ({ ...prev, palletIndex: clamp(next, mutableRef.current.maxPallet), stepIndex: 0, status: 'stopped' })),
+    setMaxStep: (next) => setState((prev) => ({ ...prev, stepIndex: clamp(prev.stepIndex, next) })),
+  }), [state]);
 
-  const controls = useMemo(
-    () => ({
-      setSpeedMs: (speed: number) => setSpeedMs(Math.max(40, Math.floor(speed))),
-      play: () => {
-        if (!pallets.length) return;
-        setStatus('playing');
-      },
-      pause: () => setStatus('paused'),
-      stop: () => {
-        setStatus('stopped');
-        setStepIndex(0);
-        frameElapsedRef.current = 0;
-      },
-      nextPallet: () => {
-        const changed = movePallet(1);
-        if (!changed) setStatus('finished');
-      },
-      prevPallet: () => {
-        movePallet(-1);
-      },
-      setPalletIndex,
-    }),
-    [movePallet, pallets.length, setPalletIndex],
-  );
-
-  return {
-    state: {
-      palletIndex,
-      stepIndex,
-      speedMs,
-      status,
-      currentPath,
-      currentPallet,
-      missingPath,
-    },
-    ...controls,
-  };
+  return api;
 }

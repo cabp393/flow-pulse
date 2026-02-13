@@ -23,7 +23,7 @@ const buildAccessByLocation = (layout: Layout): Map<string, Coord> => {
   const map = new Map<string, Coord>();
   for (let y = 0; y < layout.height; y += 1) {
     for (let x = 0; x < layout.width; x += 1) {
-      const cell = layout.grid[y][x];
+      const cell = layout.gridData[y][x];
       if (cell.type === 'PICK' && cell.pick?.locationId) {
         map.set(cell.pick.locationId, cell.pick.accessCell);
       }
@@ -32,7 +32,7 @@ const buildAccessByLocation = (layout: Layout): Map<string, Coord> => {
   return map;
 };
 
-export const buildRun = (layout: Layout, layoutVersionId: string, layoutName: string, skuMaster: SkuMaster, lines: PalletLine[]): RunResult => {
+export const buildRun = (layout: Layout, skuMaster: SkuMaster, lines: PalletLine[]): RunResult => {
   const start = findSingleCell(layout, 'START');
   const end = findSingleCell(layout, 'END');
   if (!start || !end) throw new Error('Layout requiere START y END.');
@@ -79,7 +79,7 @@ export const buildRun = (layout: Layout, layoutVersionId: string, layoutName: st
     for (let i = 0; i < pathStops.length - 1; i += 1) {
       const a = pathStops[i];
       const b = pathStops[i + 1];
-      const segmentKey = `${layoutVersionId}:${keyOf(a)}->${keyOf(b)}`;
+      const segmentKey = `${layout.layoutId}:${keyOf(a)}->${keyOf(b)}`;
       let path = cache.get(segmentKey);
       if (!path) {
         path = findPath(graph, a, b) ?? undefined;
@@ -105,9 +105,9 @@ export const buildRun = (layout: Layout, layoutVersionId: string, layoutName: st
   const runId = crypto.randomUUID();
   return {
     runId,
-    name: formatRunName(now, layoutName, skuMaster.name),
+    name: formatRunName(now, layout.name, skuMaster.name),
     createdAt: now.toISOString(),
-    layoutVersionId,
+    layoutId: layout.layoutId,
     skuMasterId: skuMaster.skuMasterId,
     layoutHash,
     skuMasterHash: hashSkuMaster(skuMaster),

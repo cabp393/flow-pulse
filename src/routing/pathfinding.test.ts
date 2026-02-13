@@ -5,7 +5,7 @@ import { buildGraph, findPath } from './pathfinding';
 describe('pathfinding', () => {
   it('finds path on straight aisle', () => {
     const layout = createLayout(3, 1);
-    layout.grid[0].forEach((c) => {
+    layout.gridData[0].forEach((c) => {
       c.type = 'AISLE';
       c.movement = defaultMovement();
     });
@@ -16,8 +16,8 @@ describe('pathfinding', () => {
 
   it('respects one-way direction', () => {
     const layout = createLayout(2, 1);
-    layout.grid[0][0] = { type: 'AISLE', movement: { allowUp: false, allowDown: false, allowLeft: false, allowRight: true } };
-    layout.grid[0][1] = { type: 'AISLE', movement: { allowUp: false, allowDown: false, allowLeft: false, allowRight: false } };
+    layout.gridData[0][0] = { type: 'AISLE', movement: { allowUp: false, allowDown: false, allowLeft: false, allowRight: true } };
+    layout.gridData[0][1] = { type: 'AISLE', movement: { allowUp: false, allowDown: false, allowLeft: false, allowRight: false } };
     const graph = buildGraph(layout);
     expect(findPath(graph, { x: 0, y: 0 }, { x: 1, y: 0 })).not.toBeNull();
     expect(findPath(graph, { x: 1, y: 0 }, { x: 0, y: 0 })).toBeNull();

@@ -16,7 +16,7 @@ export const buildGraph = (layout: Layout): NodeMap => {
   const map: NodeMap = new Map();
   for (let y = 0; y < layout.height; y += 1) {
     for (let x = 0; x < layout.width; x += 1) {
-      const c = layout.grid[y][x];
+      const c = layout.gridData[y][x];
       if (!isWalkable(c.type)) continue;
       const from: Coord = { x, y };
       const neighbors: Coord[] = [];
@@ -24,7 +24,7 @@ export const buildGraph = (layout: Layout): NodeMap => {
         const nx = x + d.dx;
         const ny = y + d.dy;
         if (nx < 0 || ny < 0 || nx >= layout.width || ny >= layout.height) continue;
-        const target = layout.grid[ny][nx];
+        const target = layout.gridData[ny][nx];
         if (!isWalkable(target.type)) continue;
         if (c.type === 'AISLE' && c.movement && !c.movement[d.rule]) continue;
         neighbors.push({ x: nx, y: ny });

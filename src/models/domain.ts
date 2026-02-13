@@ -24,9 +24,15 @@ export interface Cell {
 }
 
 export interface Layout {
+  layoutId: string;
+  name: string;
+  createdAt: string;
   width: number;
   height: number;
-  grid: Cell[][];
+  gridData: Cell[][];
+  movementRules: MovementRules;
+  startCell?: Coord;
+  endCell?: Coord;
 }
 
 export interface SkuMasterRow {
@@ -79,7 +85,7 @@ export interface RunResult {
   runId: string;
   name: string;
   createdAt: string;
-  layoutVersionId: string;
+  layoutId: string;
   skuMasterId: string;
   layoutHash: string;
   skuMasterHash: string;
@@ -88,7 +94,6 @@ export interface RunResult {
   palletResults: RunPalletResult[];
   heatmapSteps: number[][];
 }
-
 
 export interface PlayerPreferences {
   runId?: string;
@@ -107,10 +112,8 @@ export interface PlayerComparePreferences {
 }
 
 export interface AppState {
-  schemaVersion: number;
-  layout: Layout;
-  layoutVersionId: string;
-  layoutName: string;
+  layouts: Layout[];
+  activeLayoutId?: string;
   skuMasters: SkuMaster[];
   activeSkuMasterId?: string;
   runs: RunResult[];

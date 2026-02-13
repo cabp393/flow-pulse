@@ -13,7 +13,7 @@ export const validateLayout = (layout: Layout): string[] => {
 
   for (let y = 0; y < layout.height; y += 1) {
     for (let x = 0; x < layout.width; x += 1) {
-      const cell = layout.grid[y][x];
+      const cell = layout.gridData[y][x];
       if (cell.type === 'PICK') {
         if (!cell.pick?.locationId) errors.push(`PICK en (${x},${y}) sin locationId.`);
         if (cell.pick && pickIds.has(cell.pick.locationId)) errors.push(`locationId duplicado: ${cell.pick.locationId}`);
@@ -21,7 +21,7 @@ export const validateLayout = (layout: Layout): string[] => {
         if (!cell.pick?.accessCell || !isInside(layout, cell.pick.accessCell)) {
           errors.push(`PICK ${cell.pick?.locationId ?? `(${x},${y})`} sin accessCell válido.`);
         } else {
-          const access = layout.grid[cell.pick.accessCell.y][cell.pick.accessCell.x];
+          const access = layout.gridData[cell.pick.accessCell.y][cell.pick.accessCell.x];
           if (!['AISLE', 'START', 'END'].includes(access.type)) {
             errors.push(`PICK ${cell.pick.locationId} debe apuntar a accessCell transitable.`);
           }
