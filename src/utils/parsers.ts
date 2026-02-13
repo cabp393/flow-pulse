@@ -1,31 +1,49 @@
 import * as XLSX from 'xlsx';
-import type { PalletLine } from '../models/domain';
+import type { PalletLine, SkuMasterRow } from '../models/domain';
 
-export const parseSkuCsv = (text: string): Record<string, string> => {
+export interface ParsedSkuMasterCsv {
+  rows: SkuMasterRow[];
+  warnings: string[];
+}
+
+export const parseSkuMasterCsv = (text: string): ParsedSkuMasterCsv => {
   const lines = text
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
-  if (!lines.length) return {};
+  if (!lines.length) return { rows: [], warnings: [] };
 
-  const [header, ...rows] = lines;
+  const [header, ...rawRows] = lines;
   const headers = header.split(',').map((h) => h.trim().toLowerCase());
-  const skuIdx = headers.indexOf('sku');
-  const locIdx = headers.indexOf('locationid');
-  if (skuIdx < 0 || locIdx < 0) {
-    throw new Error('CSV debe contener columnas sku,locationId');
+  if (headers.length !== 3 || headers[0] !== 'ubicacion' || headers[1] !== 'secuencia' || headers[2] !== 'sku') {
+    throw new Error('CSV obligatorio con columnas exactas: ubicacion,secuencia,sku');
   }
 
-  const map: Record<string, string> = {};
-  rows.forEach((row, i) => {
+  const rows: SkuMasterRow[] = [];
+  const warnings: string[] = [];
+  const dedupe = new Set<string>();
+
+  rawRows.forEach((row, i) => {
     const parts = row.split(',').map((p) => p.trim());
-    const sku = parts[skuIdx];
-    const loc = parts[locIdx];
-    if (!sku || !loc) throw new Error(`Fila inválida en línea ${i + 2}`);
-    map[sku] = loc;
+    if (parts.length !== 3) throw new Error(`Fila inválida en línea ${i + 2}`);
+    const [locationId, sequenceRaw, sku] = parts;
+    if (!locationId || !sku) throw new Error(`Fila inválida en línea ${i + 2}`);
+
+    const sequence = Number(sequenceRaw);
+    if (!Number.isFinite(sequence)) {
+      throw new Error(`Secuencia no numérica en línea ${i + 2}`);
+    }
+
+    const key = `${sku}::${locationId}`;
+    if (dedupe.has(key)) {
+      warnings.push(`Duplicado SKU+ubicacion ignorado en línea ${i + 2}: ${sku} + ${locationId}`);
+      return;
+    }
+    dedupe.add(key);
+    rows.push({ sku, locationId, sequence });
   });
 
-  return map;
+  return { rows, warnings };
 };
 
 export const parsePalletXlsx = async (file: File): Promise<PalletLine[]> => {

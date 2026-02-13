@@ -14,7 +14,6 @@ export interface MovementRules {
 
 export interface PickMeta {
   locationId: string;
-  sequence: number;
   accessCell: Coord;
 }
 
@@ -30,13 +29,23 @@ export interface Layout {
   grid: Cell[][];
 }
 
-export type SkuMap = Record<string, string>;
+export interface SkuMasterRow {
+  sku: string;
+  locationId: string;
+  sequence: number;
+}
+
+export interface SkuLocationSequence {
+  locationId: string;
+  sequence: number;
+}
 
 export interface SkuMaster {
   skuMasterId: string;
   name: string;
-  mapping: SkuMap;
   createdAt: string;
+  rows: SkuMasterRow[];
+  index: Record<string, SkuLocationSequence[]>;
 }
 
 export interface PalletLine {
@@ -44,60 +53,42 @@ export interface PalletLine {
   sku: string;
 }
 
-export interface PalletBatch {
-  palletBatchId: string;
-  name: string;
-  lines: PalletLine[];
-  createdAt: string;
-}
-
-export interface PalletResolved {
-  palletId: string;
-  skus: string[];
-  locationIds: string[];
-  picks: { sku: string; locationId: string; sequence: number }[];
-  issues: string[];
-}
-
-export interface RunStopDetail {
-  order: number;
-  sku: string;
+export interface RunPalletStop {
   locationId: string;
   sequence: number;
-  accessCell: Coord;
 }
 
 export interface RunPalletResult {
-  runId: string;
   palletId: string;
   steps: number;
   hasPath: boolean;
-  issuesCount: number;
-  visited?: Coord[];
-  stops?: Coord[];
-  stopDetails: RunStopDetail[];
   issues: string[];
+  stops: RunPalletStop[];
+  visited?: Coord[];
 }
 
 export interface RunSummary {
   totalPallets: number;
+  okPallets: number;
+  errorPallets: number;
   totalSteps: number;
   avgSteps: number;
-  errorCount: number;
 }
 
 export interface RunResult {
   runId: string;
-  layoutVersionId: string;
-  palletBatchId: string;
-  skuMasterId: string;
-  routingParamsHash: string;
+  name: string;
   createdAt: string;
+  layoutVersionId: string;
+  skuMasterId: string;
+  layoutHash: string;
+  skuMasterHash: string;
   summary: RunSummary;
-  heatmapSteps: number[][];
   palletOrder: string[];
   palletResults: RunPalletResult[];
+  heatmapSteps: number[][];
 }
+
 
 export interface PlayerPreferences {
   runId?: string;
@@ -118,8 +109,9 @@ export interface PlayerComparePreferences {
 export interface AppState {
   schemaVersion: number;
   layout: Layout;
+  layoutVersionId: string;
+  layoutName: string;
   skuMasters: SkuMaster[];
   activeSkuMasterId?: string;
-  palletBatches: PalletBatch[];
   runs: RunResult[];
 }

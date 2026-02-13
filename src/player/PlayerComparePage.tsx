@@ -1,37 +1,36 @@
 import { useEffect, useMemo, useState } from 'react';
 import { PlayerCompare } from '../components/PlayerCompare';
-import type { Layout, PalletBatch, PlayerComparePreferences, RunResult, SkuMaster } from '../models/domain';
-import { validateComparableRuns } from '../utils/compareUtils';
+import type { Layout, PlayerComparePreferences, RunResult } from '../models/domain';
+import { hashLayout } from '../utils/layout';
 
 export function PlayerComparePage({
   layout,
   runs,
-  masters,
-  batches,
   prefs,
   onChangePrefs,
 }: {
   layout: Layout;
   runs: RunResult[];
-  masters: SkuMaster[];
-  batches: PalletBatch[];
   prefs: PlayerComparePreferences;
   onChangePrefs: (prefs: PlayerComparePreferences) => void;
 }) {
   const [status, setStatus] = useState<'idle' | 'playing' | 'paused'>('idle');
+  const [stepIndex, setStepIndex] = useState(0);
   const runA = useMemo(() => runs.find((r) => r.runId === prefs.runAId), [prefs.runAId, runs]);
   const runB = useMemo(() => runs.find((r) => r.runId === prefs.runBId), [prefs.runBId, runs]);
-  const errors = validateComparableRuns(runA, runB);
+
+  const compatible = !runA || !runB || runA.layoutVersionId === runB.layoutVersionId;
+  const currentLayoutHash = hashLayout(layout);
+  const layoutWarning = [runA, runB].filter(Boolean).some((run) => run!.layoutHash !== currentLayoutHash);
+
   const palletCount = Math.max(runA?.palletOrder.length ?? 0, runB?.palletOrder.length ?? 0);
   const currentPalletId = runA?.palletOrder[prefs.palletIndex] ?? runB?.palletOrder[prefs.palletIndex];
   const stepsA = runA?.palletResults.find((item) => item.palletId === currentPalletId)?.steps ?? 0;
   const stepsB = runB?.palletResults.find((item) => item.palletId === currentPalletId)?.steps ?? 0;
   const maxSteps = Math.max(stepsA, stepsB, 1);
 
-  const [stepIndex, setStepIndex] = useState(0);
-
   useEffect(() => {
-    if (status !== 'playing') return;
+    if (status !== 'playing' || !compatible) return;
     if (stepIndex >= maxSteps - 1) {
       if (prefs.autoContinue && prefs.palletIndex < palletCount - 1) {
         setStepIndex(0);
@@ -43,18 +42,19 @@ export function PlayerComparePage({
     }
     const timer = window.setTimeout(() => setStepIndex((s) => s + 1), prefs.speedMs);
     return () => window.clearTimeout(timer);
-  }, [maxSteps, onChangePrefs, palletCount, prefs, status, stepIndex]);
-
-  useEffect(() => {
-    onChangePrefs(prefs);
-  }, [onChangePrefs, prefs]);
+  }, [compatible, maxSteps, onChangePrefs, palletCount, prefs, status, stepIndex]);
 
   return (
     <div className="page">
       <h2>Player comparativo</h2>
-      {errors.length > 0 && <p className="error">No comparable: {errors.join(' | ')}</p>}
+      <div className="compare-grid-wrap">
+        <label>Run A<select value={prefs.runAId ?? ''} onChange={(e) => onChangePrefs({ ...prefs, runAId: e.target.value || undefined })}><option value="">--</option>{runs.map((run) => <option key={run.runId} value={run.runId}>{run.name}</option>)}</select></label>
+        <label>Run B<select value={prefs.runBId ?? ''} onChange={(e) => onChangePrefs({ ...prefs, runBId: e.target.value || undefined })}><option value="">--</option>{runs.map((run) => <option key={run.runId} value={run.runId}>{run.name}</option>)}</select></label>
+      </div>
+      {!compatible && <p className="error">Los runs deben compartir layoutVersionId para reproducir.</p>}
+      {layoutWarning && <p className="error">Advertencia: el layout actual cambió respecto al hash del run.</p>}
       <div className="player-controls">
-        <button onClick={() => setStatus('playing')}>Play</button>
+        <button disabled={!compatible} onClick={() => setStatus('playing')}>Play</button>
         <button onClick={() => setStatus('paused')}>Pause</button>
         <button onClick={() => { setStatus('idle'); setStepIndex(0); }}>Stop</button>
         <button onClick={() => { setStepIndex(0); onChangePrefs({ ...prefs, palletIndex: Math.max(0, Math.min(palletCount - 1, prefs.palletIndex - 1)) }); }}>Prev pallet</button>
@@ -62,8 +62,8 @@ export function PlayerComparePage({
         <label>Velocidad(ms)<input type="number" value={prefs.speedMs} min={40} onChange={(e) => onChangePrefs({ ...prefs, speedMs: Number(e.target.value) || 250 })} /></label>
         <label><input type="checkbox" checked={prefs.autoContinue} onChange={(e) => onChangePrefs({ ...prefs, autoContinue: e.target.checked })} /> autoContinue</label>
       </div>
-      <p>Pallet: {prefs.palletIndex + 1}/{palletCount} · Step: {stepIndex}</p>
-      <PlayerCompare layout={layout} runA={runA} runB={runB} masters={masters} batches={batches} palletIndex={prefs.palletIndex} stepIndex={stepIndex} />
+      <p>Pallet: {prefs.palletIndex + 1}/{Math.max(palletCount, 1)} · Step: {stepIndex}</p>
+      <PlayerCompare layout={layout} runA={runA} runB={runB} palletIndex={prefs.palletIndex} stepIndex={stepIndex} />
     </div>
   );
 }

@@ -48,10 +48,10 @@ export function App() {
       {tab === 'home' && <div className="page"><h2>Proyecto</h2><p>Comparación de escenarios de picking con múltiples SKU Masters.</p><div className="toolbar"><button onClick={() => setState((s) => ({ ...s, runs: clearOldRuns(s.runs) }))}>Limpiar runs antiguos</button><button onClick={() => { clearState(); setState(loadState()); setPlayerComparePrefs(defaultPlayerComparePreferences()); }}>Reset localStorage</button></div></div>}
       {tab === 'layout' && <LayoutEditorPage layout={state.layout} setLayout={setLayout} />}
       {tab === 'sku' && <SkuMasterPage layout={state.layout} masters={state.skuMasters} activeSkuMasterId={state.activeSkuMasterId} onChange={(skuMasters, activeSkuMasterId) => setState((s) => ({ ...s, skuMasters, activeSkuMasterId }))} />}
-      {tab === 'pallets' && <PalletImportPage layout={state.layout} masters={state.skuMasters} activeSkuMasterId={state.activeSkuMasterId} batches={state.palletBatches} onSaveBatches={(palletBatches) => setState((s) => ({ ...s, palletBatches }))} onGeneratedRuns={(generated) => setState((s) => ({ ...s, runs: generated.reduce((acc, run) => insertRun(acc, run), s.runs) }))} />}
+      {tab === 'pallets' && <PalletImportPage layout={state.layout} layoutVersionId={state.layoutVersionId} layoutName={state.layoutName} masters={state.skuMasters} activeSkuMasterId={state.activeSkuMasterId} onGeneratedRun={(run) => setState((s) => ({ ...s, runs: insertRun(s.runs, run) }))} />}
       {tab === 'results' && <ResultsPage layout={state.layout} runs={state.runs} masters={state.skuMasters} onDeleteRun={(runId) => setState((s) => ({ ...s, runs: removeRun(s.runs, runId) }))} />}
       {tab === 'compare' && <ComparePage layout={state.layout} runs={state.runs} runAId={compareRunAId} runBId={compareRunBId} onSelect={(a, b) => { setCompareRunAId(a); setCompareRunBId(b); setPlayerComparePrefs((prev) => ({ ...prev, runAId: a, runBId: b })); }} />}
-      {tab === 'player-compare' && <PlayerComparePage layout={state.layout} runs={state.runs} masters={state.skuMasters} batches={state.palletBatches} prefs={playerComparePrefs} onChangePrefs={setPlayerComparePrefs} />}
+      {tab === 'player-compare' && <PlayerComparePage layout={state.layout} runs={state.runs} prefs={playerComparePrefs} onChangePrefs={setPlayerComparePrefs} />}
     </div>
   );
 }

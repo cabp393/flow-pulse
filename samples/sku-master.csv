@@ -1,4 +1,4 @@
-sku,locationId
-SKU-001,LOC-A
-SKU-002,LOC-B
-SKU-003,LOC-C
+ubicacion,secuencia,sku
+A01-01-01,10,SKU123
+A01-01-02,20,SKU123
+B02-03-01,30,SKU456

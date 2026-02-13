@@ -53,7 +53,7 @@ export function LayoutEditorPage({ layout, setLayout }: Props) {
     }
     if (tool !== 'PICK') cell.pick = undefined;
     if (tool === 'PICK' && !cell.pick) {
-      cell.pick = { locationId: '', sequence: 0, accessCell: coord };
+      cell.pick = { locationId: '', accessCell: coord };
     }
     if (tool === 'WALL') cell.movement = undefined;
     setLayout(next);
@@ -146,16 +146,6 @@ export function LayoutEditorPage({ layout, setLayout }: Props) {
                     <input
                       value={selectedCell.pick?.locationId ?? ''}
                       onChange={(e) => updateCell(selected, (c) => ({ ...c, pick: { ...c.pick!, locationId: e.target.value } }))}
-                    />
-                  </label>
-                  <label>
-                    sequence
-                    <input
-                      type="number"
-                      value={selectedCell.pick?.sequence ?? 0}
-                      onChange={(e) =>
-                        updateCell(selected, (c) => ({ ...c, pick: { ...c.pick!, sequence: Number.parseInt(e.target.value, 10) || 0 } }))
-                      }
                     />
                   </label>
                   <div>
