@@ -35,17 +35,6 @@ export function App() {
 
   useEffect(() => saveState(state), [state]);
   useEffect(() => savePlayerComparePreferences(playerComparePrefs), [playerComparePrefs]);
-  useEffect(() => {
-    const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (tab === 'layout-editor' && layoutEditorState.isDirty) {
-        event.preventDefault();
-        event.returnValue = '';
-      }
-    };
-    window.addEventListener('beforeunload', onBeforeUnload);
-    return () => window.removeEventListener('beforeunload', onBeforeUnload);
-  }, [layoutEditorState.isDirty, tab]);
-
   const activeLayout = useMemo(
     () => state.layouts.find((layout) => layout.layoutId === state.activeLayoutId) ?? state.layouts[0],
     [state.activeLayoutId, state.layouts],
@@ -110,16 +99,7 @@ export function App() {
 
   const navigateTab = (next: Tab) => {
     if (tab === 'layout-editor' && next !== 'layout-editor' && layoutEditorState.isDirty) {
-      const choice = window.prompt('Hay cambios sin guardar. Escribe: guardar | descartar | cancelar', 'guardar');
-      const normalized = choice?.trim().toLowerCase();
-      if (normalized === 'guardar') {
-        const saved = layoutEditorState.save();
-        if (!saved) return;
-      } else if (normalized === 'descartar' || normalized === 'revertir') {
-        layoutEditorState.discard();
-      } else {
-        return;
-      }
+      layoutEditorState.discard();
     }
 
     setTab(next);
