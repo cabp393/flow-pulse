@@ -101,6 +101,7 @@ export function HomePage({
           activeSkuMasterId={activeSkuMasterId}
           onGeneratedRun={onCreateRun}
           onSelectLayout={onSelectLayout}
+          onOpenResults={onGoToResults}
         />
       </section>
 
