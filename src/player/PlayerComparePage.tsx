@@ -6,6 +6,7 @@ import { buildRunPath, hasSamePalletList } from './playerCompareUtils';
 const MIN_SPEED_MS = 40;
 
 type PlaybackStatus = 'stopped' | 'playing' | 'paused' | 'finished';
+type AdvanceReason = 'manual' | 'auto';
 
 const buildPlayablePalletSet = (
   palletOrder: string[],
@@ -43,6 +44,7 @@ export function PlayerComparePage({
   const statusRef = useRef(status);
   const stepRef = useRef(stepIndex);
   const prefsRef = useRef(prefs);
+  const lastAdvanceReasonRef = useRef<AdvanceReason>('manual');
 
   useEffect(() => {
     statusRef.current = status;
@@ -112,8 +114,12 @@ export function PlayerComparePage({
   }, [maxStep]);
 
   useEffect(() => {
+    const reason = lastAdvanceReasonRef.current;
     setStepIndex(0);
-    setStatus('paused');
+    if (reason === 'manual') {
+      setStatus('paused');
+    }
+    lastAdvanceReasonRef.current = 'manual';
   }, [prefs.runAId, prefs.runBId, prefs.palletIndex]);
 
   useEffect(() => {
@@ -134,9 +140,11 @@ export function PlayerComparePage({
           return currentStep;
         }
 
-        const nextIndex = findNextPlayableIndex(safePalletIndex + 1, palletOrder, playablePallets);
+        const currentIndex = Math.max(0, Math.min(currentPrefs.palletIndex, Math.max(palletCount - 1, 0)));
+        const nextIndex = findNextPlayableIndex(currentIndex + 1, palletOrder, playablePallets);
         if (nextIndex !== undefined) {
-          if (import.meta.env.DEV) console.debug('autoContinue -> next pallet', { from: safePalletIndex, to: nextIndex });
+          lastAdvanceReasonRef.current = 'auto';
+          if (import.meta.env.DEV) console.debug('autoContinue -> next pallet', { from: currentIndex, to: nextIndex });
           onChangePrefs({ ...currentPrefs, palletIndex: nextIndex });
           return 0;
         }
@@ -151,6 +159,7 @@ export function PlayerComparePage({
 
   const selectPallet = (nextIndex: number) => {
     const clamped = Math.max(0, Math.min(nextIndex, Math.max(palletCount - 1, 0)));
+    lastAdvanceReasonRef.current = 'manual';
     onChangePrefs({ ...prefs, palletIndex: clamped });
     setStepIndex(0);
     setStatus('stopped');
@@ -164,8 +173,8 @@ export function PlayerComparePage({
       <h2>Player comparativo de runs</h2>
       <p>Compara runs con layouts/SKU masters diferentes, siempre que usen el mismo listado de pallets.</p>
       <div className="compare-grid-wrap">
-        <label>Run A<select value={prefs.runAId ?? ''} onChange={(event) => onChangePrefs({ ...prefs, runAId: event.target.value || undefined, palletIndex: 0 })}><option value="">--</option>{runs.map((run) => <option key={run.runId} value={run.runId}>{run.name}</option>)}</select></label>
-        <label>Run B<select value={prefs.runBId ?? ''} onChange={(event) => onChangePrefs({ ...prefs, runBId: event.target.value || undefined, palletIndex: 0 })}><option value="">--</option>{runs.map((run) => <option key={run.runId} value={run.runId}>{run.name}</option>)}</select></label>
+        <label>Run A<select value={prefs.runAId ?? ''} onChange={(event) => { lastAdvanceReasonRef.current = 'manual'; onChangePrefs({ ...prefs, runAId: event.target.value || undefined, palletIndex: 0 }); }}><option value="">--</option>{runs.map((run) => <option key={run.runId} value={run.runId}>{run.name}</option>)}</select></label>
+        <label>Run B<select value={prefs.runBId ?? ''} onChange={(event) => { lastAdvanceReasonRef.current = 'manual'; onChangePrefs({ ...prefs, runBId: event.target.value || undefined, palletIndex: 0 }); }}><option value="">--</option>{runs.map((run) => <option key={run.runId} value={run.runId}>{run.name}</option>)}</select></label>
       </div>
 
       {!samePalletList && <p className="error">No se puede reproducir: ambos runs deben tener el mismo palletOrder.</p>}
