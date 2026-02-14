@@ -328,7 +328,26 @@ export function App() {
         const result = importLayout(payload);
         if (!result.ok) window.alert(result.message);
       }} />}
-      {tab === 'layout-editor' && <LayoutEditorPage layout={activeLayout} setLayout={setLayout} onEditorStateChange={setLayoutEditorState} />}
+      {tab === 'layout-editor' && <LayoutEditorPage
+        layout={activeLayout}
+        layouts={state.layouts}
+        activeLayoutId={activeLayout?.layoutId}
+        setLayout={setLayout}
+        onEditorStateChange={setLayoutEditorState}
+        onSelectLayout={(layoutId) => setState((current) => ({ ...current, activeLayoutId: layoutId }))}
+        onEditLayout={(layoutId) => setState((current) => ({ ...current, activeLayoutId: layoutId }))}
+        onDuplicateLayout={(layoutId) => setState((current) => ({ ...current, layouts: duplicateLayout(current.layouts, layoutId) }))}
+        onRenameLayout={(layoutId, name) => setState((current) => ({ ...current, layouts: renameLayout(current.layouts, layoutId, name) }))}
+        onExportLayout={exportLayout}
+        onDeleteLayout={(layoutId) => setState((current) => {
+          const nextLayouts = removeLayout(current.layouts, layoutId);
+          return {
+            ...current,
+            layouts: nextLayouts,
+            activeLayoutId: nextLayouts.some((item) => item.layoutId === current.activeLayoutId) ? current.activeLayoutId : nextLayouts[0]?.layoutId,
+          };
+        })}
+      />}
       {tab === 'sku' && activeLayout && <SkuMasterPage layout={activeLayout} masters={state.skuMasters} activeSkuMasterId={state.activeSkuMasterId} onChange={(skuMasters, activeSkuMasterId) => setState((s) => ({ ...s, skuMasters, activeSkuMasterId }))} onImport={importSkuMasterCsv} onExportOne={exportSkuMasterCsv} />}
       {tab === 'pallets' && <PalletImportPage layouts={state.layouts} activeLayoutId={activeLayout?.layoutId} masters={state.skuMasters} activeSkuMasterId={state.activeSkuMasterId} onGeneratedRun={(run) => setState((s) => ({ ...s, runs: insertRun(s.runs, run) }))} onSelectLayout={(layoutId) => setState((s) => ({ ...s, activeLayoutId: layoutId }))} onOpenResults={() => navigateTab('results')} />}
       {tab === 'results' && <ResultsPage layouts={state.layouts} runs={state.runs} masters={state.skuMasters} selectedRunId={compareRunAId} onSelectRun={setCompareRunAId} onDeleteRun={(runId) => setState((s) => ({ ...s, runs: removeRun(s.runs, runId) }))} />}

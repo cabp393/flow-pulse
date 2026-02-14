@@ -5,11 +5,20 @@ import { useLayoutDraft } from '../layout/useLayoutDraft';
 import { validateLayout } from '../layout/validateLayout';
 import { GridCanvas } from '../ui/GridCanvas';
 import { adjacent, isInside, resizeLayout } from '../utils/layout';
+import { LayoutList } from '../components/SavedLists';
 
 interface Props {
   layout?: Layout;
+  layouts: Layout[];
+  activeLayoutId?: string;
   setLayout: (layout: Layout) => void;
   onEditorStateChange: (state: { isDirty: boolean; save: () => boolean; discard: () => void }) => void;
+  onSelectLayout: (layoutId: string) => void;
+  onEditLayout: (layoutId: string) => void;
+  onDuplicateLayout: (layoutId: string) => void;
+  onRenameLayout: (layoutId: string, name: string) => void;
+  onExportLayout: (layoutId: string) => void;
+  onDeleteLayout: (layoutId: string) => void;
 }
 
 const tools: CellType[] = ['WALL', 'AISLE', 'PICK', 'START', 'END'];
@@ -27,7 +36,19 @@ const syncLayoutMetadata = (layout: Layout): Layout => {
   return { ...layout, startCell, endCell };
 };
 
-export function LayoutEditorPage({ layout, setLayout, onEditorStateChange }: Props) {
+export function LayoutEditorPage({
+  layout,
+  layouts,
+  activeLayoutId,
+  setLayout,
+  onEditorStateChange,
+  onSelectLayout,
+  onEditLayout,
+  onDuplicateLayout,
+  onRenameLayout,
+  onExportLayout,
+  onDeleteLayout,
+}: Props) {
   const [tool, setTool] = useState<CellType>('AISLE');
   const [zoom, setZoom] = useState(17);
   const [selected, setSelected] = useState<Coord>();
@@ -164,6 +185,24 @@ export function LayoutEditorPage({ layout, setLayout, onEditorStateChange }: Pro
           ) : <p>Selecciona una celda para editar propiedades.</p>}
         </aside>
       </div>
+
+      <section className="home-section" style={{ marginTop: 16 }}>
+        <div className="home-section-header"><h3>Layouts guardados</h3><span>{layouts.length}</span></div>
+        <LayoutList
+          items={layouts}
+          activeLayoutId={activeLayoutId}
+          disableDelete={layouts.length <= 1}
+          onOpen={onSelectLayout}
+          onEdit={onEditLayout}
+          onDuplicate={onDuplicateLayout}
+          onRename={onRenameLayout}
+          onExport={onExportLayout}
+          onDelete={(layoutId, layoutName) => {
+            if (window.confirm(`Eliminar layout "${layoutName}"?`)) onDeleteLayout(layoutId);
+          }}
+        />
+      </section>
+
       {showValidationDetails && (
         <section className="panel">
           <h3>Detalle de errores y advertencias</h3>

@@ -2,13 +2,7 @@ import type { Coord, Layout, PalletLine, RunPalletResult, RunResult, SkuMaster }
 import { findSingleCell, hashLayout, keyOf } from '../utils/layout';
 import { buildGraph, findPath } from '../routing/pathfinding';
 import { createRunBuildError } from './errors';
-
-const sanitize = (value: string): string => value.replace(/\s+/g, '_').replace(/[^\w-]/g, '_');
-
-const formatRunName = (date: Date, layoutName: string, skuMasterName: string): string => {
-  const pad = (value: number) => String(value).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}_${sanitize(layoutName)}_${sanitize(skuMasterName)}`;
-};
+import { buildRunName } from '../utils/runName';
 
 const hashSkuMaster = (master: SkuMaster): string => {
   const serialized = JSON.stringify(master.rows ?? []);
@@ -49,7 +43,7 @@ export interface RunBuildWarnings {
   missingSkuMappings: number;
 }
 
-export const buildRun = (layout: Layout, skuMaster: SkuMaster, lines: PalletLine[]): { run: RunResult; warnings: RunBuildWarnings } => {
+export const buildRun = (layout: Layout, skuMaster: SkuMaster, lines: PalletLine[], xlsxFileName: string): { run: RunResult; warnings: RunBuildWarnings } => {
   if (!layout?.layoutId || !Array.isArray(layout.gridData)) {
     throw createRunBuildError('validation', 'Layout inválido.', ['No se encontró estructura de grilla válida.']);
   }
@@ -158,7 +152,7 @@ export const buildRun = (layout: Layout, skuMaster: SkuMaster, lines: PalletLine
   const runId = crypto.randomUUID();
   const run: RunResult = {
     runId,
-    name: formatRunName(now, layout.name, skuMaster.name),
+    name: buildRunName(now, layout.name, skuMaster.name, xlsxFileName),
     createdAt: now.toISOString(),
     layoutId: layout.layoutId,
     skuMasterId: skuMaster.skuMasterId,
