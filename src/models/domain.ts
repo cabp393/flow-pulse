@@ -66,6 +66,8 @@ export interface RunPalletStop {
 
 export interface RunPalletResult {
   palletId: string;
+  skuCount?: number;
+  missingSkuCount?: number;
   steps: number;
   hasPath: boolean;
   issues: string[];

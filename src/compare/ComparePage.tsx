@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { Layout, RunResult } from '../models/domain';
 import { HeatmapSideBySide } from '../components/HeatmapSideBySide';
 import { validateComparableRuns } from '../utils/compareUtils';
+import { PalletCompareTable } from './PalletCompareTable';
 
 export function ComparePage({ layout, runs, runAId, runBId, onSelect }: { layout: Layout; runs: RunResult[]; runAId?: string; runBId?: string; onSelect: (a?: string, b?: string) => void }) {
   const [sharedScale, setSharedScale] = useState(true);
@@ -28,6 +29,7 @@ export function ComparePage({ layout, runs, runAId, runBId, onSelect }: { layout
         <span>Error pallets A/B: {runA?.summary.errorPallets ?? 0} / {runB?.summary.errorPallets ?? 0}</span>
       </div>
       <HeatmapSideBySide layout={layout} runA={runA} runB={runB} sharedScale={sharedScale} />
+      <PalletCompareTable runA={runA} runB={runB} />
     </div>
   );
 }
