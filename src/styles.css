@@ -167,6 +167,9 @@ textarea { width: 100%; }
 
 .validation-list { margin: 0; padding-left: 16px; display: grid; gap: 4px; }
 .validation-list li { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.results-unmapped { margin-top: 10px; border: 1px solid #e5e7eb; border-radius: 4px; padding: 6px; background: #fafafa; }
+.results-unmapped-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.results-unmapped-list { margin: 0; padding: 6px; border-radius: 4px; background: #fff; border: 1px solid #e5e7eb; max-height: 180px; overflow: auto; }
 .results-errors { margin-top: 10px; }
 .results-error-card { border: 1px solid #fecaca; background: #fef2f2; border-radius: 4px; padding: 6px; margin-bottom: 6px; }
 .results-error-card ul { margin: 4px 0 0; padding-left: 16px; }
