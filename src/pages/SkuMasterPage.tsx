@@ -3,6 +3,7 @@ import type { Layout, SkuMaster } from '../models/domain';
 import { parseSkuMasterCsv } from '../utils/parsers';
 import { createSkuMaster, duplicateSkuMaster, removeSkuMaster, updateSkuMaster } from '../storage/skuMasterRepo';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { SkuMasterList } from '../components/SavedLists';
 
 interface Props {
   layout: Layout;
@@ -12,6 +13,12 @@ interface Props {
   onImport: (csvPayload: string, layoutId?: string) => { ok: boolean; message: string };
   onExportOne: (skuMasterId: string) => void;
 }
+
+const formatStorageSize = (payload: unknown): string => {
+  const bytes = new TextEncoder().encode(JSON.stringify(payload)).length;
+  if (bytes < 1024) return `${bytes} B`;
+  return `${(bytes / 1024).toFixed(1)} KB`;
+};
 
 export function SkuMasterPage({
   layout,
@@ -113,23 +120,31 @@ export function SkuMasterPage({
       </div>
       {error && <p className="error">{error}</p>}
       {warnings.length > 0 && <ul>{warnings.map((item) => <li key={item}>{item}</li>)}</ul>}
-      <ul className="sku-list">
-        {masters.map((master) => (
-          <li key={master.skuMasterId}>
-            <span><strong>{master.name}</strong> ({master.rows.length} filas)</span>
-            <button onClick={() => onChange(masters, master.skuMasterId)}>{activeSkuMasterId === master.skuMasterId ? 'Viendo' : 'Visualizar'}</button>
-            <button onClick={() => editMaster(master)}>Editar</button>
-            <button onClick={() => {
-              const duplicated = duplicateSkuMaster(masters, master.skuMasterId);
-              onChange(duplicated, duplicated[0]?.skuMasterId ?? activeSkuMasterId);
-            }}>
-              Duplicar
-            </button>
-            <button onClick={() => onExportOne(master.skuMasterId)}>Exportar CSV</button>
-            <button onClick={() => setPendingDelete({ id: master.skuMasterId, name: master.name })}>Eliminar</button>
-          </li>
-        ))}
-      </ul>
+
+      <section className="home-section">
+        <div className="home-section-header"><h3>SKU Masters guardados</h3><span>{masters.length} ({formatStorageSize(masters)})</span></div>
+        <SkuMasterList
+          items={masters}
+          activeSkuMasterId={activeSkuMasterId}
+          onOpen={(skuMasterId) => onChange(masters, skuMasterId)}
+          onEdit={(skuMasterId) => {
+            const target = masters.find((item) => item.skuMasterId === skuMasterId);
+            if (target) editMaster(target);
+          }}
+          onDuplicate={(skuMasterId) => {
+            const duplicated = duplicateSkuMaster(masters, skuMasterId);
+            onChange(duplicated, duplicated[0]?.skuMasterId ?? activeSkuMasterId);
+          }}
+          onRename={(skuMasterId, nextName) => {
+            const target = masters.find((item) => item.skuMasterId === skuMasterId);
+            if (!target) return;
+            onChange(updateSkuMaster(masters, { ...target, name: nextName, index: target.index }), activeSkuMasterId);
+          }}
+          onExport={onExportOne}
+          onDelete={(id, deleteName) => setPendingDelete({ id, name: deleteName })}
+        />
+      </section>
+
       {inconsistent.length > 0 && <p className="error">SKU master activo tiene {inconsistent.length} filas con locationIds no válidos.</p>}
       <ConfirmModal
         open={Boolean(pendingDelete)}

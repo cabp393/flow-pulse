@@ -1,8 +1,9 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import type { Layout, RunResult, SkuMaster } from '../models/domain';
 import { PalletImportPage } from './PalletImportPage';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { InlineIconButton } from '../components/InlineIcon';
+import { LayoutList, SkuMasterList } from '../components/SavedLists';
 
 interface Props {
   layouts: Layout[];
@@ -43,18 +44,6 @@ const formatStorageSize = (payload: unknown): string => {
 };
 
 const dateFmt = (value: string) => new Date(value).toLocaleDateString();
-
-function ItemRow({ title, subtitle, actions }: { title: string; subtitle?: string; actions: ReactNode }) {
-  return (
-    <li className="inline-row">
-      <div>
-        <strong>{title}</strong>
-        {subtitle && <small>{subtitle}</small>}
-      </div>
-      <div className="row-actions">{actions}</div>
-    </li>
-  );
-}
 
 export function HomePage({
   layouts,
@@ -107,78 +96,55 @@ export function HomePage({
 
       <section className="page home-section">
         <div className="home-section-header"><h3>Layouts guardados</h3><span>{layouts.length} ({formatStorageSize(layouts)})</span></div>
-        <ul className="home-saved-list">
-          {layouts.map((layout) => (
-            <ItemRow
-              key={layout.layoutId}
-              title={layout.name}
-              subtitle={`${layout.width}x${layout.height} · ${dateFmt(layout.createdAt)}${layout.layoutId === activeLayoutId ? ' · activo' : ''}`}
-              actions={(
-                <>
-                  <InlineIconButton icon="pencil" title="Editar layout" onClick={() => onEditLayout(layout.layoutId)} />
-                  <InlineIconButton icon="copy" title="Duplicar layout" onClick={() => onDuplicateLayout(layout.layoutId)} />
-                  <InlineIconButton icon="download" title="Exportar layout" onClick={() => onExportLayout(layout.layoutId)} />
-                  <InlineIconButton icon="rename" title="Renombrar layout" onClick={() => {
-                    const next = window.prompt('Nuevo nombre del layout', layout.name);
-                    if (next && next.trim()) onRenameLayout(layout.layoutId, next.trim());
-                  }} />
-                  <InlineIconButton icon="trash" title="Eliminar layout" onClick={() => setConfirmState({ kind: 'layout', id: layout.layoutId, name: layout.name })} disabled={layouts.length <= 1} />
-                </>
-              )}
-            />
-          ))}
-        </ul>
+        <LayoutList
+          items={layouts}
+          activeLayoutId={activeLayoutId}
+          disableDelete={layouts.length <= 1}
+          onOpen={onSelectLayout}
+          onEdit={onEditLayout}
+          onDuplicate={onDuplicateLayout}
+          onRename={onRenameLayout}
+          onExport={onExportLayout}
+          onDelete={(id, name) => setConfirmState({ kind: 'layout', id, name })}
+        />
       </section>
 
       <section className="page home-section">
         <div className="home-section-header"><h3>SKU Masters guardados</h3><span>{skuMasters.length} ({formatStorageSize(skuMasters)})</span></div>
-        <ul className="home-saved-list">
-          {skuMasters.map((master) => (
-            <ItemRow
-              key={master.skuMasterId}
-              title={master.name}
-              subtitle={`${master.rows.length} filas · ${dateFmt(master.createdAt)}${master.skuMasterId === activeSkuMasterId ? ' · activo' : ''}`}
-              actions={(
-                <>
-                  <InlineIconButton icon="pencil" title="Ver/Editar SKU master" onClick={() => onOpenSkuMaster(master.skuMasterId)} />
-                  <InlineIconButton icon="copy" title="Duplicar SKU master" onClick={() => onDuplicateSkuMaster(master.skuMasterId)} />
-                  <InlineIconButton icon="rename" title="Renombrar SKU master" onClick={() => {
-                    const next = window.prompt('Nuevo nombre del SKU master', master.name);
-                    if (next && next.trim()) onRenameSkuMaster(master.skuMasterId, next.trim());
-                  }} />
-                  <InlineIconButton icon="download" title="Exportar SKU master" onClick={() => onExportSkuMaster(master.skuMasterId)} />
-                  <InlineIconButton icon="trash" title="Eliminar SKU master" onClick={() => setConfirmState({ kind: 'sku', id: master.skuMasterId, name: master.name })} />
-                </>
-              )}
-            />
-          ))}
-        </ul>
+        <SkuMasterList
+          items={skuMasters}
+          activeSkuMasterId={activeSkuMasterId}
+          onOpen={onOpenSkuMaster}
+          onEdit={() => {}}
+          onDuplicate={onDuplicateSkuMaster}
+          onRename={onRenameSkuMaster}
+          onExport={onExportSkuMaster}
+          onDelete={(id, name) => setConfirmState({ kind: 'sku', id, name })}
+        />
       </section>
 
       <section className="page home-section">
         <div className="home-section-header"><h3>Runs guardados</h3><span>{runs.length} ({formatStorageSize(runs)})</span></div>
         <ul className="home-saved-list">
           {runs.map((run) => (
-            <ItemRow
-              key={run.runId}
-              title={run.name}
-              subtitle={`${run.summary.totalPallets} pallets · ${dateFmt(run.createdAt)}`}
-              actions={(
-                <>
-                  <InlineIconButton icon="chart" title="Ver resultados" onClick={() => onOpenRun(run.runId)} />
-                  <InlineIconButton icon="split" title="Abrir en comparar" onClick={() => onOpenRunInCompare(run.runId)} />
-                  <InlineIconButton icon="play" title="Abrir en player" onClick={() => onOpenRunInPlayer(run.runId)} />
-                  <InlineIconButton icon="rename" title="Renombrar run" onClick={() => {
-                    const next = window.prompt('Nuevo nombre del run', run.name);
-                    if (next && next.trim()) onRenameRun(run.runId, next.trim());
-                  }} />
-                  <InlineIconButton icon="trash" title="Eliminar run" onClick={() => setConfirmState({ kind: 'run', id: run.runId, name: run.name })} />
-                </>
-              )}
-            />
+            <li className="inline-row" key={run.runId}>
+              <div>
+                <strong>{run.name}</strong>
+                <small>{`${run.summary.totalPallets} pallets · ${dateFmt(run.createdAt)}`}</small>
+              </div>
+              <div className="row-actions">
+                <InlineIconButton icon="chart" title="Ver resultados" onClick={() => onOpenRun(run.runId)} />
+                <InlineIconButton icon="split" title="Abrir en comparar" onClick={() => onOpenRunInCompare(run.runId)} />
+                <InlineIconButton icon="play" title="Abrir en player" onClick={() => onOpenRunInPlayer(run.runId)} />
+                <InlineIconButton icon="rename" title="Renombrar run" onClick={() => {
+                  const next = window.prompt('Nuevo nombre del run', run.name);
+                  if (next && next.trim()) onRenameRun(run.runId, next.trim());
+                }} />
+                <InlineIconButton icon="trash" title="Eliminar run" onClick={() => setConfirmState({ kind: 'run', id: run.runId, name: run.name })} />
+              </div>
+            </li>
           ))}
         </ul>
-        <div className="toolbar"><button onClick={onGoToResults}>Vista Heatmap</button></div>
       </section>
 
       <ConfirmModal

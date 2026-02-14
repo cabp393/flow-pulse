@@ -81,7 +81,7 @@ export function PalletImportPage({ layouts, activeLayoutId, masters, activeSkuMa
       if (import.meta.env.DEV) {
         console.debug('[run-builder] stage=calculando-rutas', { pallets: new Set(lines.map((line) => line.pallet_id)).size, lines: lines.length });
       }
-      const { run, warnings } = buildRun(selectedLayout, selectedMaster, lines);
+      const { run, warnings } = buildRun(selectedLayout, selectedMaster, lines, selectedFile.name);
 
       stage = 'Guardando…';
       setProgress(stage);
