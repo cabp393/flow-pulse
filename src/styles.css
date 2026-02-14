@@ -184,3 +184,35 @@ textarea { width: 100%; }
 .pallet-compare-table { width: 100%; border-collapse: collapse; font-size: var(--fs-12); }
 .pallet-compare-table th,
 .pallet-compare-table td { border: 1px solid #e5e7eb; padding: 2px 6px; text-align: left; }
+
+.run-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 2px solid #d1d5db;
+  border-top-color: #2563eb;
+  animation: spin 1s linear infinite;
+}
+
+.error-boundary-screen {
+  margin: 16px auto;
+  max-width: 640px;
+}
+
+.error-boundary-screen pre {
+  white-space: pre-wrap;
+  font-size: 11px;
+  background: #fafafa;
+  border: 1px solid #e5e7eb;
+  padding: 8px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
