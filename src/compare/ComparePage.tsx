@@ -4,7 +4,21 @@ import { HeatmapSideBySide } from '../components/HeatmapSideBySide';
 import { validateComparableRuns } from '../utils/compareUtils';
 import { PalletCompareTable } from './PalletCompareTable';
 
-export function ComparePage({ layout, runs, runAId, runBId, onSelect }: { layout: Layout; runs: RunResult[]; runAId?: string; runBId?: string; onSelect: (a?: string, b?: string) => void }) {
+export function ComparePage({
+  layout,
+  runs,
+  runAId,
+  runBId,
+  onSelect,
+  onOpenPalletInPlayer,
+}: {
+  layout: Layout;
+  runs: RunResult[];
+  runAId?: string;
+  runBId?: string;
+  onSelect: (a?: string, b?: string) => void;
+  onOpenPalletInPlayer: (palletId: string) => void;
+}) {
   const [sharedScale, setSharedScale] = useState(true);
   const runA = useMemo(() => runs.find((run) => run.runId === runAId), [runAId, runs]);
   const runB = useMemo(() => runs.find((run) => run.runId === runBId), [runBId, runs]);
@@ -29,7 +43,7 @@ export function ComparePage({ layout, runs, runAId, runBId, onSelect }: { layout
         <span>Error pallets A/B: {runA?.summary.errorPallets ?? 0} / {runB?.summary.errorPallets ?? 0}</span>
       </div>
       <HeatmapSideBySide layout={layout} runA={runA} runB={runB} sharedScale={sharedScale} />
-      <PalletCompareTable runA={runA} runB={runB} />
+      <PalletCompareTable runA={runA} runB={runB} onOpenPallet={onOpenPalletInPlayer} />
     </div>
   );
 }

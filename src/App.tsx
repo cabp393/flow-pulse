@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { AppState, Layout, PlayerComparePreferences } from './models/domain';
+import type { AppState, Layout, PlayerComparePreferences, RunResult } from './models/domain';
 import { LayoutEditorPage } from './pages/LayoutEditorPage';
 import { LayoutsPage } from './pages/LayoutsPage';
 import { PalletImportPage } from './pages/PalletImportPage';
@@ -44,6 +44,39 @@ const pathToTab = (pathname: string): Tab => {
   return 'home';
 };
 
+
+const parsePlayerCompareQuery = (runs: RunResult[]): Partial<PlayerComparePreferences> | undefined => {
+  const params = new URLSearchParams(window.location.search);
+  const runAId = params.get('runA') || undefined;
+  const runBId = params.get('runB') || undefined;
+  const palletId = params.get('pallet') || undefined;
+  const palletIndexRaw = params.get('palletIndex');
+  const autoRaw = params.get('auto');
+  if (!runAId && !runBId && !palletId && !palletIndexRaw && !autoRaw) return undefined;
+
+  const runA = runs.find((run) => run.runId === runAId);
+  const runB = runs.find((run) => run.runId === runBId);
+  const palletOrder = runA?.palletOrder ?? runB?.palletOrder ?? [];
+
+  let palletIndex: number | undefined;
+  if (palletId) {
+    const found = palletOrder.indexOf(palletId);
+    if (found >= 0) palletIndex = found;
+  }
+
+  if (palletIndex === undefined && palletIndexRaw) {
+    const parsed = Number(palletIndexRaw);
+    if (!Number.isNaN(parsed)) palletIndex = Math.max(0, Math.floor(parsed));
+  }
+
+  return {
+    runAId,
+    runBId,
+    palletIndex,
+    autoContinue: autoRaw === '0' ? false : undefined,
+  };
+};
+
 const ensureUniqueLayoutName = (name: string, existing: Layout[]): string => {
   if (!existing.some((layout) => layout.name === name)) return name;
   const importedBase = `${name} (importado)`;
@@ -67,6 +100,18 @@ export function App() {
 
   useEffect(() => saveState(state), [state]);
   useEffect(() => savePlayerComparePreferences(playerComparePrefs), [playerComparePrefs]);
+
+  useEffect(() => {
+    const next = parsePlayerCompareQuery(state.runs);
+    if (!next) return;
+    setPlayerComparePrefs((prev) => ({
+      ...prev,
+      ...(next.runAId !== undefined ? { runAId: next.runAId } : {}),
+      ...(next.runBId !== undefined ? { runBId: next.runBId } : {}),
+      ...(next.palletIndex !== undefined ? { palletIndex: next.palletIndex } : {}),
+      ...(next.autoContinue !== undefined ? { autoContinue: next.autoContinue } : {}),
+    }));
+  }, [state.runs]);
   const activeLayout = useMemo(
     () => state.layouts.find((layout) => layout.layoutId === state.activeLayoutId) ?? state.layouts[0],
     [state.activeLayoutId, state.layouts],
@@ -164,6 +209,26 @@ export function App() {
     }
   };
 
+
+  const navigateToPlayerFromCompare = (runAId: string, runBId: string, palletId: string) => {
+    const runA = state.runs.find((run) => run.runId === runAId);
+    const runB = state.runs.find((run) => run.runId === runBId);
+    const palletOrder = runA?.palletOrder ?? runB?.palletOrder ?? [];
+    const resolvedIndex = Math.max(0, palletOrder.indexOf(palletId));
+
+    setPlayerComparePrefs((prev) => ({
+      ...prev,
+      runAId,
+      runBId,
+      palletIndex: resolvedIndex,
+      autoContinue: false,
+    }));
+
+    setTab('player-compare');
+    const params = new URLSearchParams({ runA: runAId, runB: runBId, pallet: palletId, auto: '0' });
+    window.history.pushState({}, '', `/player-compare?${params.toString()}`);
+  };
+
   const navigateTab = (next: Tab) => {
     if (tab === 'layout-editor' && next !== 'layout-editor' && layoutEditorState.isDirty) {
       layoutEditorState.discard();
@@ -250,7 +315,10 @@ export function App() {
       {tab === 'sku' && activeLayout && <SkuMasterPage layout={activeLayout} masters={state.skuMasters} activeSkuMasterId={state.activeSkuMasterId} onChange={(skuMasters, activeSkuMasterId) => setState((s) => ({ ...s, skuMasters, activeSkuMasterId }))} onImport={importSkuMasterCsv} onExportOne={exportSkuMasterCsv} />}
       {tab === 'pallets' && <PalletImportPage layouts={state.layouts} activeLayoutId={activeLayout?.layoutId} masters={state.skuMasters} activeSkuMasterId={state.activeSkuMasterId} onGeneratedRun={(run) => setState((s) => ({ ...s, runs: insertRun(s.runs, run) }))} onSelectLayout={(layoutId) => setState((s) => ({ ...s, activeLayoutId: layoutId }))} />}
       {tab === 'results' && <ResultsPage layouts={state.layouts} runs={state.runs} masters={state.skuMasters} selectedRunId={compareRunAId} onSelectRun={setCompareRunAId} onDeleteRun={(runId) => setState((s) => ({ ...s, runs: removeRun(s.runs, runId) }))} />}
-      {tab === 'compare' && activeLayout && <ComparePage layout={activeLayout} runs={state.runs} runAId={compareRunAId} runBId={compareRunBId} onSelect={(a, b) => { setCompareRunAId(a); setCompareRunBId(b); setPlayerComparePrefs((prev) => ({ ...prev, runAId: a, runBId: b })); }} />}
+      {tab === 'compare' && activeLayout && <ComparePage layout={activeLayout} runs={state.runs} runAId={compareRunAId} runBId={compareRunBId} onSelect={(a, b) => { setCompareRunAId(a); setCompareRunBId(b); setPlayerComparePrefs((prev) => ({ ...prev, runAId: a, runBId: b })); }} onOpenPalletInPlayer={(palletId) => {
+        if (!compareRunAId || !compareRunBId) return;
+        navigateToPlayerFromCompare(compareRunAId, compareRunBId, palletId);
+      }} />}
       {tab === 'player-compare' && <PlayerComparePage layouts={state.layouts} runs={state.runs} prefs={playerComparePrefs} onChangePrefs={setPlayerComparePrefs} />}
       {tab === 'advanced' && (
         <AdvancedPage
