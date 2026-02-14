@@ -53,9 +53,21 @@ export function PalletImportPage({ layouts, activeLayoutId, masters, activeSkuMa
 
   const runGeneration = async () => {
     let stage = 'init';
-    if (!selectedLayout) return setInfo('Debe seleccionar un layout válido.');
-    if (!selectedMaster) return setInfo('Debe seleccionar SKU Master.');
-    if (!selectedFile) return setInfo('Debe cargar XLSX válido.');
+    if (!selectedLayout) {
+      setError(createRunBuildError('validation', 'Debe seleccionar un layout válido.', ['Seleccione un layout antes de generar.']));
+      setInfo('');
+      return;
+    }
+    if (!selectedMaster) {
+      setError(createRunBuildError('validation', 'Debe seleccionar SKU Master.', ['Seleccione un SKU Master antes de generar.']));
+      setInfo('');
+      return;
+    }
+    if (!(selectedFile instanceof File)) {
+      setError(createRunBuildError('validation', 'Debe cargar XLSX válido.', ['Adjunte un archivo XLSX antes de generar.']));
+      setInfo('');
+      return;
+    }
 
     setError(undefined);
     setWarningSummary('');
@@ -66,6 +78,14 @@ export function PalletImportPage({ layouts, activeLayoutId, masters, activeSkuMa
       stage = 'Leyendo XLSX…';
       setProgress(stage);
       await sleepTick();
+      if (import.meta.env.DEV) {
+        console.debug('[run-builder] preflight', {
+          layoutName: selectedLayout.name,
+          skuMasterName: selectedMaster.name,
+          fileName: selectedFile.name,
+        });
+      }
+
       const lines = await parsePalletXlsx(selectedFile);
 
       stage = 'Validando…';
@@ -101,7 +121,11 @@ export function PalletImportPage({ layouts, activeLayoutId, masters, activeSkuMa
       setError(normalized);
       setProgress('failed');
       if (import.meta.env.DEV) {
-        console.error('[run-builder] stage=failed', cause);
+        if (cause instanceof Error) {
+          console.error('[run-builder] stage=failed', { message: cause.message, stack: cause.stack, stage });
+        } else {
+          console.error('[run-builder] stage=failed', { cause, stage });
+        }
       }
     } finally {
       setIsRunning(false);
