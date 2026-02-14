@@ -1,15 +1,12 @@
-import { useMemo, useRef, useState, type ChangeEvent } from 'react';
-import type { Layout, SkuMaster } from '../models/domain';
+import { useRef, useState, type ChangeEvent } from 'react';
+import type { Layout } from '../models/domain';
 import { ConfirmModal } from '../components/ConfirmModal';
 
 interface Props {
   layouts: Layout[];
-  skuMasters: SkuMaster[];
   onResetStorage: () => void;
   onClearOldRuns: () => void;
-  onExportLayout: (layoutId: string) => void;
   onImportLayout: (payload: string) => { ok: boolean; message: string };
-  onExportSkuMasterCsv: (skuMasterId: string) => void;
   onImportSkuMasterCsv: (payload: string, layoutId?: string) => { ok: boolean; message: string };
 }
 
@@ -17,26 +14,16 @@ type ConfirmKind = 'reset' | 'clear-runs' | undefined;
 
 export function AdvancedPage({
   layouts,
-  skuMasters,
   onResetStorage,
   onClearOldRuns,
-  onExportLayout,
   onImportLayout,
-  onExportSkuMasterCsv,
   onImportSkuMasterCsv,
 }: Props) {
   const [confirmState, setConfirmState] = useState<ConfirmKind>();
-  const [selectedLayoutId, setSelectedLayoutId] = useState(layouts[0]?.layoutId ?? '');
-  const [selectedSkuMasterId, setSelectedSkuMasterId] = useState(skuMasters[0]?.skuMasterId ?? '');
   const [validationLayoutId, setValidationLayoutId] = useState(layouts[0]?.layoutId ?? '');
   const [status, setStatus] = useState('');
   const layoutInputRef = useRef<HTMLInputElement>(null);
   const skuInputRef = useRef<HTMLInputElement>(null);
-
-  const selectedLayoutName = useMemo(
-    () => layouts.find((layout) => layout.layoutId === selectedLayoutId)?.name,
-    [layouts, selectedLayoutId],
-  );
 
   const onImportFile = (event: ChangeEvent<HTMLInputElement>, handler: (payload: string) => void) => {
     const file = event.target.files?.[0];
@@ -61,23 +48,6 @@ export function AdvancedPage({
       <ul className="advanced-actions">
         <li>
           <div>
-            <strong>Exportar Layout</strong>
-            <small>Descarga un JSON completo del layout seleccionado.</small>
-          </div>
-          <div className="toolbar">
-            <select value={selectedLayoutId} onChange={(e) => setSelectedLayoutId(e.target.value)}>
-              <option value="">Seleccionar layout</option>
-              {layouts.map((layout) => <option key={layout.layoutId} value={layout.layoutId}>{layout.name}</option>)}
-            </select>
-            <button disabled={!selectedLayoutId} onClick={() => {
-              onExportLayout(selectedLayoutId);
-              if (selectedLayoutName) setStatus(`Layout "${selectedLayoutName}" exportado.`);
-            }}>Exportar JSON</button>
-          </div>
-        </li>
-
-        <li>
-          <div>
             <strong>Importar Layout</strong>
             <small>Importa un JSON de layout y evita colisiones de id/nombre.</small>
           </div>
@@ -87,23 +57,6 @@ export function AdvancedPage({
               const result = onImportLayout(payload);
               setStatus(result.message);
             })} />
-          </div>
-        </li>
-
-        <li>
-          <div>
-            <strong>Exportar SKU Master</strong>
-            <small>Descarga CSV con columnas ubicacion,secuencia,sku.</small>
-          </div>
-          <div className="toolbar">
-            <select value={selectedSkuMasterId} onChange={(e) => setSelectedSkuMasterId(e.target.value)}>
-              <option value="">Seleccionar SKU master</option>
-              {skuMasters.map((master) => <option key={master.skuMasterId} value={master.skuMasterId}>{master.name}</option>)}
-            </select>
-            <button disabled={!selectedSkuMasterId} onClick={() => {
-              onExportSkuMasterCsv(selectedSkuMasterId);
-              setStatus('SKU master exportado en CSV.');
-            }}>Exportar CSV</button>
           </div>
         </li>
 

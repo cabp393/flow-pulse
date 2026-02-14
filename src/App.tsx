@@ -37,16 +37,24 @@ const topNavTabs: Array<{ id: Tab; label: string }> = [
   { id: 'advanced', label: 'Avanzado' },
 ];
 
-const pathToTab = (pathname: string): Tab => {
-  const clean = pathname.replace(/^\//, '');
+const pathToTab = (pathname: string, hash: string): Tab => {
+  const hashRoute = hash.replace(/^#\/?/, '').split('?')[0];
+  const clean = (hashRoute || pathname.replace(/^\//, '')).trim();
   if (!clean || clean === 'home') return 'home';
   if (tabs.includes(clean as Tab)) return clean as Tab;
   return 'home';
 };
 
+const getRouteQuery = (): URLSearchParams => {
+  const hash = window.location.hash.replace(/^#\/?/, '');
+  const queryPart = hash.split('?')[1];
+  if (queryPart) return new URLSearchParams(queryPart);
+  return new URLSearchParams(window.location.search);
+};
+
 
 const parsePlayerCompareQuery = (runs: RunResult[]): Partial<PlayerComparePreferences> | undefined => {
-  const params = new URLSearchParams(window.location.search);
+  const params = getRouteQuery();
   const runAId = params.get('runA') || undefined;
   const runBId = params.get('runB') || undefined;
   const palletId = params.get('pallet') || undefined;
@@ -88,7 +96,7 @@ const ensureUniqueLayoutName = (name: string, existing: Layout[]): string => {
 
 export function App() {
   const [state, setState] = useState<AppState>(() => loadState());
-  const [tab, setTab] = useState<Tab>(() => pathToTab(window.location.pathname));
+  const [tab, setTab] = useState<Tab>(() => pathToTab(window.location.pathname, window.location.hash));
   const [compareRunAId, setCompareRunAId] = useState<string>();
   const [compareRunBId, setCompareRunBId] = useState<string>();
   const [playerComparePrefs, setPlayerComparePrefs] = useState<PlayerComparePreferences>(() => loadPlayerComparePreferences());
@@ -100,6 +108,15 @@ export function App() {
 
   useEffect(() => saveState(state), [state]);
   useEffect(() => savePlayerComparePreferences(playerComparePrefs), [playerComparePrefs]);
+  useEffect(() => {
+    const syncTabWithLocation = () => setTab(pathToTab(window.location.pathname, window.location.hash));
+    window.addEventListener('popstate', syncTabWithLocation);
+    window.addEventListener('hashchange', syncTabWithLocation);
+    return () => {
+      window.removeEventListener('popstate', syncTabWithLocation);
+      window.removeEventListener('hashchange', syncTabWithLocation);
+    };
+  }, []);
 
   useEffect(() => {
     const next = parsePlayerCompareQuery(state.runs);
@@ -226,7 +243,7 @@ export function App() {
 
     setTab('player-compare');
     const params = new URLSearchParams({ runA: runAId, runB: runBId, pallet: palletId, auto: '0' });
-    window.history.pushState({}, '', `/player-compare?${params.toString()}`);
+    window.history.pushState({}, '', `/#/player-compare?${params.toString()}`);
   };
 
   const navigateTab = (next: Tab) => {
@@ -235,7 +252,7 @@ export function App() {
     }
 
     setTab(next);
-    window.history.pushState({}, '', next === 'home' ? '/' : `/${next}`);
+    window.history.pushState({}, '', next === 'home' ? '/#/' : `/#/${next}`);
   };
 
   return (
@@ -323,16 +340,13 @@ export function App() {
       {tab === 'advanced' && (
         <AdvancedPage
           layouts={state.layouts}
-          skuMasters={state.skuMasters}
           onResetStorage={() => {
             clearState();
             setState(loadState());
             setPlayerComparePrefs(defaultPlayerComparePreferences());
           }}
           onClearOldRuns={() => setState((s) => ({ ...s, runs: clearOldRuns(s.runs) }))}
-          onExportLayout={exportLayout}
           onImportLayout={importLayout}
-          onExportSkuMasterCsv={exportSkuMasterCsv}
           onImportSkuMasterCsv={importSkuMasterCsv}
         />
       )}
