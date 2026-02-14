@@ -55,10 +55,12 @@ export const buildRun = (layout: Layout, skuMaster: SkuMaster, lines: PalletLine
     const stops: { sku: string; locationId: string; sequence: number; accessCell: Coord }[] = [];
 
     const uniqueSkus = [...new Set(skus)];
+    let missingSkuCount = 0;
     uniqueSkus.forEach((sku) => {
       const options = skuMaster.index[sku];
       if (!options || options.length === 0) {
         issues.push(`SKU ${sku} sin mapping en SKU Master`);
+        missingSkuCount += 1;
         return;
       }
       // Regla MVP: si el SKU tiene múltiples ubicaciones, se usa la de menor sequence.
@@ -97,7 +99,15 @@ export const buildRun = (layout: Layout, skuMaster: SkuMaster, lines: PalletLine
       });
     }
 
-    palletResults.push({ palletId, steps, hasPath, issues, stops: stops.map((stop) => ({ locationId: stop.locationId, sequence: stop.sequence })) });
+    palletResults.push({
+      palletId,
+      skuCount: uniqueSkus.length,
+      missingSkuCount,
+      steps,
+      hasPath,
+      issues,
+      stops: stops.map((stop) => ({ locationId: stop.locationId, sequence: stop.sequence })),
+    });
   });
 
   const now = new Date();
