@@ -56,6 +56,13 @@ export function PlayerComparePage({
     setStepIndex((current) => Math.min(current, maxStep));
   }, [maxStep]);
 
+
+  useEffect(() => {
+    setStepIndex(0);
+    setStatus('paused');
+  }, [prefs.runAId, prefs.runBId, prefs.palletIndex]);
+
+
   useEffect(() => {
     if (status !== 'playing' || !canPlay) return;
 
