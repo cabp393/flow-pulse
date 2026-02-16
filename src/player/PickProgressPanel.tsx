@@ -18,7 +18,7 @@ export function PickProgressPanel({ path, stepIndex, pickPlan, hasPath }: PickPr
       <ol className="pick-progress-list">
         {items.map((item, index) => (
           <li key={`${item.sku}-${index}`}>
-            {index + 1}) {item.sku} - {item.icon}
+            {item.sku} - {item.icon}
           </li>
         ))}
       </ol>
