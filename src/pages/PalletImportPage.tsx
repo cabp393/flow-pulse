@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Layout, RunResult, SkuMaster } from '../models/domain';
-import { buildRun } from '../runs/buildRun';
+import { buildRun, type RunBuildProgress } from '../runs/buildRun';
 import { createRunBuildError, normalizeRunBuildError, runBuildErrorToClipboard, type RunBuildError } from '../runs/errors';
 import { parsePalletXlsx } from '../utils/parsers';
 
@@ -28,6 +28,16 @@ function RocketIcon() {
 
 const sleepTick = async () => new Promise((resolve) => window.setTimeout(resolve, 0));
 
+const formatProgress = (progress: RunBuildProgress): string => {
+  const stageLabel =
+    progress.stage === 'preparando'
+      ? 'Preparando datos'
+      : progress.stage === 'calculando'
+        ? 'Calculando rutas'
+        : 'Guardando run';
+  return `${stageLabel} · Procesados ${progress.processed} / ${progress.total} pallets`;
+};
+
 export function PalletImportPage({ layouts, activeLayoutId, masters, activeSkuMasterId, onGeneratedRun, onSelectLayout, onOpenResults }: Props) {
   const [selectedMasterId, setSelectedMasterId] = useState<string>(activeSkuMasterId ?? '');
   const [selectedFile, setSelectedFile] = useState<File | undefined>();
@@ -45,7 +55,7 @@ export function PalletImportPage({ layouts, activeLayoutId, masters, activeSkuMa
     const payload = runBuildErrorToClipboard(error);
     try {
       await navigator.clipboard.writeText(payload);
-      setInfo('Detalles copiados al portapapeles.');
+      setInfo('Diagnóstico copiado al portapapeles.');
     } catch {
       setInfo('No se pudo copiar al portapapeles.');
     }
@@ -75,11 +85,11 @@ export function PalletImportPage({ layouts, activeLayoutId, masters, activeSkuMa
     setIsRunning(true);
 
     try {
-      stage = 'Leyendo XLSX…';
-      setProgress(stage);
+      stage = 'leyendo xlsx';
+      setProgress('Leyendo XLSX…');
       await sleepTick();
       if (import.meta.env.DEV) {
-        console.debug('[run-builder] preflight', {
+        console.debug('[run-builder] stage=leyendo-xlsx', {
           layoutName: selectedLayout.name,
           skuMasterName: selectedMaster.name,
           fileName: selectedFile.name,
@@ -87,24 +97,22 @@ export function PalletImportPage({ layouts, activeLayoutId, masters, activeSkuMa
       }
 
       const lines = await parsePalletXlsx(selectedFile);
-
-      stage = 'Validando…';
-      setProgress(stage);
-      await sleepTick();
       if (!lines.length) {
-        throw createRunBuildError('validation', 'El XLSX no contiene líneas para procesar.');
+        throw createRunBuildError('validation', 'El XLSX no contiene líneas para procesar.', undefined, { stage: 'leyendo xlsx' });
       }
 
-      stage = 'Calculando rutas…';
-      setProgress(stage);
+      stage = 'calculando';
+      setProgress('Preparando datos…');
       await sleepTick();
-      if (import.meta.env.DEV) {
-        console.debug('[run-builder] stage=calculando-rutas', { pallets: new Set(lines.map((line) => line.pallet_id)).size, lines: lines.length });
-      }
-      const { run, warnings } = buildRun(selectedLayout, selectedMaster, lines, selectedFile.name);
 
-      stage = 'Guardando…';
-      setProgress(stage);
+      const { run, warnings } = await buildRun(selectedLayout, selectedMaster, lines, selectedFile.name, {
+        onProgress: (nextProgress) => {
+          setProgress(formatProgress(nextProgress));
+        },
+      });
+
+      stage = 'guardando';
+      setProgress(`Guardando run · Procesados ${run.summary.totalPallets} / ${run.summary.totalPallets} pallets`);
       await sleepTick();
       onGeneratedRun(run);
 
@@ -165,12 +173,16 @@ export function PalletImportPage({ layouts, activeLayoutId, masters, activeSkuMa
       {error && (
         <div className="modal-backdrop" role="dialog" aria-modal="true">
           <div className="modal confirm-modal">
-            <h3>No se pudo generar la run</h3>
+            <h3>Falló al generar la run</h3>
             <p>{error.message}</p>
+            <p>
+              <strong>Etapa:</strong> {error.context?.stage ?? 'desconocida'}
+              {error.context?.palletId ? <> · <strong>Pallet:</strong> {error.context.palletId}</> : null}
+            </p>
             {error.details?.length ? <ul className="validation-list">{error.details.map((item) => <li key={item}>{item}</li>)}</ul> : null}
             <div className="modal-actions">
               <button onClick={() => setError(undefined)}>Cerrar</button>
-              <button onClick={() => void copyErrorDetails()}>Copiar detalles</button>
+              <button onClick={() => void copyErrorDetails()}>Copiar diagnóstico</button>
             </div>
           </div>
         </div>
