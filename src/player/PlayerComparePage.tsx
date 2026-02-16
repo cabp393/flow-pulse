@@ -52,6 +52,7 @@ export function PlayerComparePage({
   prefs: PlayerComparePreferences;
   onChangePrefs: (prefs: PlayerComparePreferences) => void;
 }) {
+  const [mode, setMode] = useState<'single' | 'compare'>(prefs.runBId ? 'compare' : 'single');
   const [status, setStatus] = useState<PlaybackStatus>('stopped');
   const [stepIndex, setStepIndex] = useState(0);
 
@@ -72,10 +73,10 @@ export function PlayerComparePage({
   const layoutA = useMemo(() => layouts.find((layout) => layout.layoutId === runA?.layoutId), [layouts, runA?.layoutId]);
   const layoutB = useMemo(() => layouts.find((layout) => layout.layoutId === runB?.layoutId), [layouts, runB?.layoutId]);
 
-  const samePalletList = hasSamePalletList(runA, runB);
-  const canPlay = Boolean(runA && runB && layoutA && layoutB && samePalletList);
+  const samePalletList = mode === 'single' ? true : hasSamePalletList(runA, runB);
+  const canPlay = mode === 'single' ? Boolean(runA && layoutA) : Boolean(runA && runB && layoutA && layoutB && samePalletList);
 
-  const palletOrder = useMemo(() => buildSelectablePalletOrder(runA, runB), [runA, runB]);
+  const palletOrder = useMemo(() => buildSelectablePalletOrder(runA, mode === 'single' ? undefined : runB), [mode, runA, runB]);
   const palletCount = palletOrder.length;
   const safePalletIndex = Math.max(0, Math.min(prefs.palletIndex, Math.max(palletCount - 1, 0)));
   const activePalletId = palletOrder[safePalletIndex];
@@ -184,15 +185,18 @@ export function PlayerComparePage({
 
   return (
     <div className="page">
-      <h2>Player comparativo de runs</h2>
-      <p>Compara runs con layouts/SKU masters diferentes, siempre que usen el mismo listado de pallets.</p>
+      <h2>Player</h2>
+      <div className="player-toggle">
+        <button className={mode === 'single' ? 'active' : ''} onClick={() => { setMode('single'); onChangePrefs({ ...prefs, runBId: undefined }); }}>Single</button>
+        <button className={mode === 'compare' ? 'active' : ''} onClick={() => setMode('compare')}>Compare</button>
+      </div>
       <div className="compare-grid-wrap">
         <label>Run A<select value={prefs.runAId ?? ''} onChange={(event) => { lastAdvanceReasonRef.current = 'manual'; onChangePrefs({ ...prefs, runAId: event.target.value || undefined, palletIndex: 0 }); }}><option value="">--</option>{runs.map((run) => <option key={run.runId} value={run.runId}>{run.name}</option>)}</select></label>
-        <label>Run B<select value={prefs.runBId ?? ''} onChange={(event) => { lastAdvanceReasonRef.current = 'manual'; onChangePrefs({ ...prefs, runBId: event.target.value || undefined, palletIndex: 0 }); }}><option value="">--</option>{runs.map((run) => <option key={run.runId} value={run.runId}>{run.name}</option>)}</select></label>
+        {mode === 'compare' && <label>Run B<select value={prefs.runBId ?? ''} onChange={(event) => { lastAdvanceReasonRef.current = 'manual'; onChangePrefs({ ...prefs, runBId: event.target.value || undefined, palletIndex: 0 }); }}><option value="">--</option>{runs.map((run) => <option key={run.runId} value={run.runId}>{run.name}</option>)}</select></label>}
       </div>
 
       {!samePalletList && <p className="error">No se puede reproducir: ambos runs deben tener el mismo palletOrder.</p>}
-      {(runA && !layoutA) || (runB && !layoutB) ? <p className="error">No se encontró el layout de uno de los runs seleccionados.</p> : null}
+      {(runA && !layoutA) || (mode === 'compare' && runB && !layoutB) ? <p className="error">No se encontró el layout de uno de los runs seleccionados.</p> : null}
 
       <div className="player-controls">
         <button disabled={!canPlay || palletCount === 0} onClick={() => setStatus('playing')}>Play</button>
@@ -226,7 +230,7 @@ export function PlayerComparePage({
         Estado: {status} · Pallet {palletCount ? safePalletIndex + 1 : 0}/{Math.max(palletCount, 1)} · ID: {activePalletId ?? '-'} · Step {stepIndex}/{maxStep}
       </p>
 
-      <PlayerCompare runA={runA} runB={runB} layoutA={layoutA} layoutB={layoutB} palletId={activePalletId} stepIndex={stepIndex} />
+      <PlayerCompare runA={runA} runB={mode === 'compare' ? runB : undefined} layoutA={layoutA} layoutB={mode === 'compare' ? layoutB : undefined} palletId={activePalletId} stepIndex={stepIndex} />
     </div>
   );
 }

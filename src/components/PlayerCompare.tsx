@@ -68,6 +68,10 @@ export function PlayerCompare({
   palletId?: string;
   stepIndex: number;
 }) {
+  if (!runB || !layoutB) {
+    return <PlayerRunPane title="Run" run={runA} layout={layoutA} palletId={palletId} stepIndex={stepIndex} />;
+  }
+
   return (
     <div className="compare-grid-wrap">
       <PlayerRunPane title="Run A" run={runA} layout={layoutA} palletId={palletId} stepIndex={stepIndex} />
