@@ -141,8 +141,7 @@ export function PalletImportPage({ layouts, activeLayoutId, masters, activeSkuMa
   };
 
   return (
-    <div>
-      <h2>Run Builder</h2>
+    <div className="run-builder">
       <label>Layout<select value={activeLayoutId ?? ''} onChange={(e) => onSelectLayout(e.target.value)}><option value="">--</option>{layouts.map((layout) => <option key={layout.layoutId} value={layout.layoutId}>{layout.name}</option>)}</select></label>
       <label>SKU Master<select value={selectedMasterId} onChange={(e) => setSelectedMasterId(e.target.value)}><option value="">--</option>{masters.map((master) => <option key={master.skuMasterId} value={master.skuMasterId}>{master.name}</option>)}</select></label>
       <input type="file" accept=".xlsx" onChange={(e) => {
@@ -153,14 +152,14 @@ export function PalletImportPage({ layouts, activeLayoutId, masters, activeSkuMa
         setInfo(file ? `Archivo listo: ${file.name}` : '');
       }} />
       <button
-        className="btn-with-icon"
+        className="btn-with-icon primary"
         disabled={!selectedLayout || !selectedMaster || !selectedFile || isRunning}
         onClick={() => {
           void runGeneration();
         }}
       >
         <RocketIcon />
-        <span>{isRunning ? 'Generando…' : 'Generar Run'}</span>
+        <span>{isRunning ? 'Generating…' : 'Generate Run'}</span>
       </button>
       {isRunning && <p className="run-progress"><span className="spinner" aria-hidden="true" /> {progress}</p>}
       {warningSummary && (

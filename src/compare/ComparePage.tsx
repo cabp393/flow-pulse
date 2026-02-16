@@ -28,22 +28,29 @@ export function ComparePage({
   const pct = runA?.summary.totalSteps ? (deltaTotal / runA.summary.totalSteps) * 100 : 0;
 
   return (
-    <div className="page">
-      <h2>Comparación de runs</h2>
-      <div className="compare-grid-wrap">
+    <div className="compare-page">
+      <section className="card compare-toolbar">
         <label>Run A<select value={runAId ?? ''} onChange={(e) => onSelect(e.target.value || undefined, runBId)}><option value="">--</option>{runs.map((run) => <option key={run.runId} value={run.runId}>{run.name}</option>)}</select></label>
         <label>Run B<select value={runBId ?? ''} onChange={(e) => onSelect(runAId, e.target.value || undefined)}><option value="">--</option>{runs.map((run) => <option key={run.runId} value={run.runId}>{run.name}</option>)}</select></label>
-      </div>
-      <label><input type="checkbox" checked={sharedScale} onChange={(e) => setSharedScale(e.target.checked)} /> Escala de color compartida</label>
+        <label><input type="checkbox" checked={sharedScale} onChange={(e) => setSharedScale(e.target.checked)} /> Shared scale</label>
+      </section>
+
       {errors.length > 0 && <p className="error">No comparable: {errors.join(' | ')}</p>}
-      <div className="toolbar">
-        <span>Δ totalSteps: {deltaTotal}</span>
-        <span>% mejora/peor: {pct.toFixed(2)}%</span>
-        <span>Δ avgSteps: {((runB?.summary.avgSteps ?? 0) - (runA?.summary.avgSteps ?? 0)).toFixed(2)}</span>
-        <span>Error pallets A/B: {runA?.summary.errorPallets ?? 0} / {runB?.summary.errorPallets ?? 0}</span>
+
+      <section className="stats-bar">
+        <article><small>Δ total steps</small><strong>{deltaTotal}</strong></article>
+        <article><small>Δ %</small><strong>{pct.toFixed(2)}%</strong></article>
+        <article><small>Δ avg steps</small><strong>{((runB?.summary.avgSteps ?? 0) - (runA?.summary.avgSteps ?? 0)).toFixed(2)}</strong></article>
+        <article><small>Error pallets A/B</small><strong>{runA?.summary.errorPallets ?? 0} / {runB?.summary.errorPallets ?? 0}</strong></article>
+      </section>
+
+      <div className="card">
+        <HeatmapSideBySide layout={layout} runA={runA} runB={runB} sharedScale={sharedScale} />
       </div>
-      <HeatmapSideBySide layout={layout} runA={runA} runB={runB} sharedScale={sharedScale} />
-      <PalletCompareTable runA={runA} runB={runB} onOpenPallet={onOpenPalletInPlayer} />
+
+      <section className="card">
+        <PalletCompareTable runA={runA} runB={runB} onOpenPallet={onOpenPalletInPlayer} />
+      </section>
     </div>
   );
 }

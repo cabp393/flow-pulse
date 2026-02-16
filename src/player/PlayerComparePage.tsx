@@ -183,18 +183,15 @@ export function PlayerComparePage({
   const prevStep = () => setStepIndex((current) => Math.max(current - 1, 0));
 
   return (
-    <div className="page">
-      <h2>Player comparativo de runs</h2>
-      <p>Compara runs con layouts/SKU masters diferentes, siempre que usen el mismo listado de pallets.</p>
-      <div className="compare-grid-wrap">
+    <div className="player-page">
+      <section className="card compare-toolbar">
         <label>Run A<select value={prefs.runAId ?? ''} onChange={(event) => { lastAdvanceReasonRef.current = 'manual'; onChangePrefs({ ...prefs, runAId: event.target.value || undefined, palletIndex: 0 }); }}><option value="">--</option>{runs.map((run) => <option key={run.runId} value={run.runId}>{run.name}</option>)}</select></label>
         <label>Run B<select value={prefs.runBId ?? ''} onChange={(event) => { lastAdvanceReasonRef.current = 'manual'; onChangePrefs({ ...prefs, runBId: event.target.value || undefined, palletIndex: 0 }); }}><option value="">--</option>{runs.map((run) => <option key={run.runId} value={run.runId}>{run.name}</option>)}</select></label>
-      </div>
-
+      </section>
       {!samePalletList && <p className="error">No se puede reproducir: ambos runs deben tener el mismo palletOrder.</p>}
       {(runA && !layoutA) || (runB && !layoutB) ? <p className="error">No se encontró el layout de uno de los runs seleccionados.</p> : null}
 
-      <div className="player-controls">
+      <section className="card player-controls">
         <button disabled={!canPlay || palletCount === 0} onClick={() => setStatus('playing')}>Play</button>
         <button onClick={() => setStatus('paused')}>Pause</button>
         <button onClick={() => { setStatus('stopped'); setStepIndex(0); }}>Stop</button>
@@ -220,13 +217,15 @@ export function PlayerComparePage({
           />
           Auto-continuar pallet
         </label>
-      </div>
+      </section>
 
-      <p>
+      <p className="player-status">
         Estado: {status} · Pallet {palletCount ? safePalletIndex + 1 : 0}/{Math.max(palletCount, 1)} · ID: {activePalletId ?? '-'} · Step {stepIndex}/{maxStep}
       </p>
 
+      <section className="card">
       <PlayerCompare runA={runA} runB={runB} layoutA={layoutA} layoutB={layoutB} palletId={activePalletId} stepIndex={stepIndex} />
+      </section>
     </div>
   );
 }
