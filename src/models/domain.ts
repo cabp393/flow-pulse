@@ -64,6 +64,15 @@ export interface RunPalletStop {
   sequence: number;
 }
 
+export interface RunPickPlanItem {
+  sku: string;
+  locationId: string;
+  sequence: number;
+  accessX: number;
+  accessY: number;
+  status?: 'missing';
+}
+
 export interface RunPalletResult {
   palletId: string;
   skuCount?: number;
@@ -72,6 +81,7 @@ export interface RunPalletResult {
   hasPath: boolean;
   issues: string[];
   stops: RunPalletStop[];
+  pickPlan?: RunPickPlanItem[];
   visited?: Coord[];
 }
 
