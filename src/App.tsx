@@ -12,6 +12,7 @@ import {
   loadState,
   savePlayerComparePreferences,
   saveState,
+  loadStorageNotice,
 } from './storage/localRepo';
 import { insertRun, clearOldRuns, removeRun } from './storage/runRepo';
 import { ComparePage } from './compare/ComparePage';
@@ -111,8 +112,12 @@ export function App() {
     save: () => true,
     discard: () => {},
   });
+  const [storageNotice, setStorageNotice] = useState<string | undefined>(() => loadStorageNotice());
 
-  useEffect(() => saveState(state), [state]);
+  useEffect(() => {
+    saveState(state);
+    setStorageNotice(loadStorageNotice());
+  }, [state]);
   useEffect(() => savePlayerComparePreferences(playerComparePrefs), [playerComparePrefs]);
   useEffect(() => {
     const syncTabWithLocation = () => setTab(pathToTab(window.location.pathname, window.location.hash));
@@ -264,6 +269,7 @@ export function App() {
   return (
     <div className="app">
       <TopBar tab={tab} tabs={topNavTabs} onNavigate={(item) => navigateTab(item as Tab)} />
+      {storageNotice && <p className="toast-success">{storageNotice}</p>}
 
       {tab === 'home' && (
         <HomePage
