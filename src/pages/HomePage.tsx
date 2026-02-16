@@ -43,7 +43,7 @@ const formatStorageSize = (payload: unknown): string => {
   return `${(bytes / 1024).toFixed(1)} KB`;
 };
 
-const dateFmt = (value: string) => new Date(value).toLocaleDateString();
+const dateTimeFmt = (value: string) => new Date(value).toLocaleString();
 
 export function HomePage({
   layouts,
@@ -82,6 +82,27 @@ export function HomePage({
 
   return (
     <div className="home-grid">
+      <section className="page home-section">
+        <div className="home-section-header">
+          <h3>Atajos</h3>
+          <span>Flujo rápido</span>
+        </div>
+        <div className="quick-actions-grid" role="list" aria-label="Acciones rápidas">
+          <button type="button" className="quick-action-card" onClick={() => onEditLayout(activeLayoutId ?? layouts[0]?.layoutId ?? '')} disabled={!layouts.length}>
+            <strong>Crear / editar layout</strong>
+            <small>Diseña celdas START, END y PICK.</small>
+          </button>
+          <button type="button" className="quick-action-card" onClick={() => onOpenSkuMaster(activeSkuMasterId ?? skuMasters[0]?.skuMasterId ?? '')} disabled={!skuMasters.length}>
+            <strong>Cargar SKU Master</strong>
+            <small>Importa CSV y valida locationIds.</small>
+          </button>
+          <button type="button" className="quick-action-card" onClick={onGoToResults} disabled={!runs.length}>
+            <strong>Explorar heatmap</strong>
+            <small>Revisa métricas y errores del último run.</small>
+          </button>
+        </div>
+      </section>
+
       <section className="page home-section">
         <PalletImportPage
           layouts={layouts}
@@ -125,26 +146,41 @@ export function HomePage({
 
       <section className="page home-section">
         <div className="home-section-header"><h3>Runs guardados</h3><span>{runs.length} ({formatStorageSize(runs)})</span></div>
-        <ul className="home-saved-list">
-          {runs.map((run) => (
-            <li className="inline-row" key={run.runId}>
-              <div>
-                <strong>{run.name}</strong>
-                <small>{`${run.summary.totalPallets} pallets · ${dateFmt(run.createdAt)}`}</small>
-              </div>
-              <div className="row-actions">
-                <InlineIconButton icon="chart" title="Ver resultados" onClick={() => onOpenRun(run.runId)} />
-                <InlineIconButton icon="split" title="Abrir en comparar" onClick={() => onOpenRunInCompare(run.runId)} />
-                <InlineIconButton icon="play" title="Abrir en player" onClick={() => onOpenRunInPlayer(run.runId)} />
-                <InlineIconButton icon="rename" title="Renombrar run" onClick={() => {
-                  const next = window.prompt('Nuevo nombre del run', run.name);
-                  if (next && next.trim()) onRenameRun(run.runId, next.trim());
-                }} />
-                <InlineIconButton icon="trash" title="Eliminar run" onClick={() => setConfirmState({ kind: 'run', id: run.runId, name: run.name })} />
-              </div>
-            </li>
-          ))}
-        </ul>
+        <div className="table-wrap">
+          <table className="data-table" aria-label="Tabla de runs guardados">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Fecha</th>
+                <th>Pallets</th>
+                <th>Métricas</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {runs.map((run) => (
+                <tr key={run.runId}>
+                  <td>{run.name}</td>
+                  <td>{dateTimeFmt(run.createdAt)}</td>
+                  <td>{run.summary.totalPallets}</td>
+                  <td>{`Avg ${run.summary.avgSteps.toFixed(2)} · Err ${run.summary.errorPallets}`}</td>
+                  <td>
+                    <div className="row-actions">
+                      <InlineIconButton icon="chart" title="Ver resultados" onClick={() => onOpenRun(run.runId)} />
+                      <InlineIconButton icon="split" title="Abrir en comparar" onClick={() => onOpenRunInCompare(run.runId)} />
+                      <InlineIconButton icon="play" title="Abrir en player" onClick={() => onOpenRunInPlayer(run.runId)} />
+                      <InlineIconButton icon="rename" title="Renombrar run" onClick={() => {
+                        const next = window.prompt('Nuevo nombre del run', run.name);
+                        if (next && next.trim()) onRenameRun(run.runId, next.trim());
+                      }} />
+                      <InlineIconButton icon="trash" title="Eliminar run" onClick={() => setConfirmState({ kind: 'run', id: run.runId, name: run.name })} />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <ConfirmModal

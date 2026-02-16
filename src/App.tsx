@@ -113,12 +113,20 @@ export function App() {
     discard: () => {},
   });
   const [storageNotice, setStorageNotice] = useState<string | undefined>(() => loadStorageNotice());
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    const storedTheme = localStorage.getItem('flowpulse.theme');
+    return storedTheme === 'light' ? 'light' : 'dark';
+  });
 
   useEffect(() => {
     saveState(state);
     setStorageNotice(loadStorageNotice());
   }, [state]);
   useEffect(() => savePlayerComparePreferences(playerComparePrefs), [playerComparePrefs]);
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('flowpulse.theme', theme);
+  }, [theme]);
   useEffect(() => {
     const syncTabWithLocation = () => setTab(pathToTab(window.location.pathname, window.location.hash));
     window.addEventListener('popstate', syncTabWithLocation);
@@ -268,9 +276,15 @@ export function App() {
 
   return (
     <div className="app">
-      <TopBar tab={tab} tabs={topNavTabs} onNavigate={(item) => navigateTab(item as Tab)} />
+      <TopBar
+        tab={tab}
+        tabs={topNavTabs}
+        theme={theme}
+        onNavigate={(item) => navigateTab(item as Tab)}
+        onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+      />
       {storageNotice && <p className="toast-success">{storageNotice}</p>}
-
+      <main className="app-main">
       {tab === 'home' && (
         <HomePage
           layouts={state.layouts}
@@ -381,6 +395,7 @@ export function App() {
           onImportSkuMasterCsv={importSkuMasterCsv}
         />
       )}
+      </main>
     </div>
   );
 }
