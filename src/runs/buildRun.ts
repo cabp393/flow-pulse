@@ -89,27 +89,33 @@ export const buildRun = (layout: Layout, skuMaster: SkuMaster, lines: PalletLine
   grouped.forEach((skus, palletId) => {
     const issues: string[] = [];
     const stops: { sku: string; locationId: string; sequence: number; accessCell: Coord }[] = [];
+    const pickPlan: { sku: string; locationId: string; sequence: number; accessX: number; accessY: number; status?: 'missing'; orderIndex: number }[] = [];
 
     const uniqueSkus = [...new Set(skus)];
     let missingSkuCount = 0;
-    uniqueSkus.forEach((sku) => {
+    uniqueSkus.forEach((sku, orderIndex) => {
       const options = skuMaster.index?.[sku];
       if (!Array.isArray(options) || options.length === 0) {
         issues.push(`SKU ${sku} sin mapping en SKU Master`);
         missingSkuCount += 1;
+        pickPlan.push({ sku, locationId: 'N/A', sequence: Number.MAX_SAFE_INTEGER, accessX: -1, accessY: -1, status: 'missing', orderIndex });
         return;
       }
       const selected = options[0];
       const accessCell = accessByLocation.get(selected.locationId);
       if (!accessCell) {
         issues.push(`Ubicación ${selected.locationId} (SKU ${sku}) no existe o no es accesible en layout`);
+        pickPlan.push({ sku, locationId: selected.locationId, sequence: Number(selected.sequence) || Number.MAX_SAFE_INTEGER, accessX: -1, accessY: -1, status: 'missing', orderIndex });
         return;
       }
       const sequence = Number(selected.sequence);
-      stops.push({ sku, locationId: selected.locationId, sequence: Number.isFinite(sequence) ? sequence : Number.MAX_SAFE_INTEGER, accessCell });
+      const safeSequence = Number.isFinite(sequence) ? sequence : Number.MAX_SAFE_INTEGER;
+      stops.push({ sku, locationId: selected.locationId, sequence: safeSequence, accessCell });
+      pickPlan.push({ sku, locationId: selected.locationId, sequence: safeSequence, accessX: accessCell.x, accessY: accessCell.y, orderIndex });
     });
 
     stops.sort((a, b) => a.sequence - b.sequence);
+    pickPlan.sort((a, b) => (a.sequence - b.sequence) || (a.orderIndex - b.orderIndex));
 
     let steps = 0;
     let hasPath = true;
@@ -144,6 +150,7 @@ export const buildRun = (layout: Layout, skuMaster: SkuMaster, lines: PalletLine
       hasPath,
       issues,
       stops: stops.map((stop) => ({ locationId: stop.locationId, sequence: stop.sequence })),
+      pickPlan: pickPlan.map(({ orderIndex, ...item }) => item),
     });
   });
 

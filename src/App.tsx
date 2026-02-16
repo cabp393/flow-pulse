@@ -64,12 +64,18 @@ const parsePlayerCompareQuery = (runs: RunResult[]): Partial<PlayerComparePrefer
 
   const runA = runs.find((run) => run.runId === runAId);
   const runB = runs.find((run) => run.runId === runBId);
-  const palletOrder = runA?.palletOrder ?? runB?.palletOrder ?? [];
+  const palletOrderA = runA?.palletOrder ?? [];
+  const palletOrderB = runB?.palletOrder ?? [];
 
   let palletIndex: number | undefined;
   if (palletId) {
-    const found = palletOrder.indexOf(palletId);
-    if (found >= 0) palletIndex = found;
+    const foundInA = palletOrderA.indexOf(palletId);
+    const foundInB = palletOrderB.indexOf(palletId);
+    if (foundInA >= 0) {
+      palletIndex = foundInA;
+    } else if (foundInB >= 0) {
+      palletIndex = foundInB;
+    }
   }
 
   if (palletIndex === undefined && palletIndexRaw) {

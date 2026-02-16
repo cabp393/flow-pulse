@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import type { Layout, RunResult } from '../models/domain';
-import { GridCanvas } from '../ui/GridCanvas';
 import { buildRunPath, buildVisitCounts } from '../player/playerCompareUtils';
+import { PickProgressPanel } from '../player/PickProgressPanel';
+import { GridCanvas } from '../ui/GridCanvas';
 
 interface PlayerRunPaneProps {
   title: string;
@@ -17,6 +18,8 @@ function PlayerRunPane({ title, run, layout, palletId, stepIndex }: PlayerRunPan
     return buildRunPath(layout, run, palletId);
   }, [layout, palletId, run]);
 
+  const palletResult = useMemo(() => run?.palletResults.find((item) => item.palletId === palletId), [palletId, run]);
+  const pickPlan = palletResult?.pickPlan ?? [];
   const clampedStep = Math.min(stepIndex, Math.max(path.length - 1, 0));
   const visitCounts = useMemo(() => buildVisitCounts(path, clampedStep), [clampedStep, path]);
   const isFinished = path.length > 0 && stepIndex >= path.length - 1;
@@ -40,6 +43,12 @@ function PlayerRunPane({ title, run, layout, palletId, stepIndex }: PlayerRunPan
           followCamera
         />
       )}
+      <PickProgressPanel
+        path={path}
+        stepIndex={clampedStep}
+        pickPlan={pickPlan}
+        hasPath={Boolean(path.length)}
+      />
     </section>
   );
 }
