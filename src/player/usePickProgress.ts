@@ -10,39 +10,42 @@ export interface PickProgressItem {
   icon: '🟢' | '🔴' | '⚠️' | '·';
 }
 
-const buildCompletedSet = (pickPlan: RunPickPlanItem[], path: Coord[], stepIndex: number): Set<number> => {
-  if (!pickPlan.length || !path.length) return new Set<number>();
+const resolveNextPickIndex = (pickPlan: RunPickPlanItem[], path: Coord[], stepIndex: number): number => {
+  if (!pickPlan.length || !path.length) return -1;
 
   const clampedStep = Math.max(0, Math.min(stepIndex, path.length - 1));
-  const picksByCell = new Map<string, number[]>();
+  let nextPickIndex = 0;
 
-  pickPlan.forEach((pick, index) => {
-    if (pick.status === 'missing') return;
-    const key = keyOf({ x: pick.accessX, y: pick.accessY });
-    const list = picksByCell.get(key) ?? [];
-    list.push(index);
-    picksByCell.set(key, list);
-  });
-
-  const completed = new Set<number>();
-  for (let i = 0; i <= clampedStep; i += 1) {
-    const atCell = picksByCell.get(keyOf(path[i]));
-    if (!atCell) continue;
-    atCell.forEach((pickIndex) => completed.add(pickIndex));
+  while (nextPickIndex < pickPlan.length) {
+    const candidate = pickPlan[nextPickIndex];
+    if (candidate.status !== 'missing') break;
+    nextPickIndex += 1;
   }
 
-  return completed;
+  for (let i = 0; i <= clampedStep && nextPickIndex < pickPlan.length; i += 1) {
+    const currentCell = path[i];
+    while (nextPickIndex < pickPlan.length && pickPlan[nextPickIndex].status === 'missing') {
+      nextPickIndex += 1;
+    }
+    if (nextPickIndex >= pickPlan.length) break;
+
+    const expectedPick = pickPlan[nextPickIndex];
+    if (keyOf(currentCell) === keyOf({ x: expectedPick.accessX, y: expectedPick.accessY })) {
+      nextPickIndex += 1;
+    }
+  }
+
+  return nextPickIndex;
 };
 
 export const resolvePickProgress = (pickPlan: RunPickPlanItem[], path: Coord[], stepIndex: number): PickProgressItem[] => {
-  const completed = buildCompletedSet(pickPlan, path, stepIndex);
-  const nextPickIndex = pickPlan.findIndex((pick, index) => pick.status !== 'missing' && !completed.has(index));
+  const nextPickIndex = resolveNextPickIndex(pickPlan, path, stepIndex);
 
   return pickPlan.map((pick, index) => {
     if (pick.status === 'missing') {
       return { index: index + 1, sku: pick.sku, locationId: pick.locationId, sequence: pick.sequence, icon: '⚠️' };
     }
-    if (completed.has(index)) {
+    if (nextPickIndex >= 0 && index < nextPickIndex) {
       return { index: index + 1, sku: pick.sku, locationId: pick.locationId, sequence: pick.sequence, icon: '🟢' };
     }
     if (index === nextPickIndex) {

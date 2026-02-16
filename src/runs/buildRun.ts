@@ -4,6 +4,8 @@ import { buildGraph, findPath } from '../routing/pathfinding';
 import { createRunBuildError } from './errors';
 import { buildRunName } from '../utils/runName';
 
+const isDev = import.meta.env.DEV;
+
 const hashSkuMaster = (master: SkuMaster): string => {
   const serialized = JSON.stringify(master.rows ?? []);
   let hash = 2166136261;
@@ -88,8 +90,7 @@ export const buildRun = (layout: Layout, skuMaster: SkuMaster, lines: PalletLine
   const palletResults: RunPalletResult[] = [];
   grouped.forEach((skus, palletId) => {
     const issues: string[] = [];
-    const stops: { sku: string; locationId: string; sequence: number; accessCell: Coord }[] = [];
-    const pickPlan: { sku: string; locationId: string; sequence: number; accessX: number; accessY: number; status?: 'missing'; orderIndex: number }[] = [];
+    const unresolvedPickPlan: { sku: string; locationId: string; sequence: number; accessX: number; accessY: number; status?: 'missing'; orderIndex: number }[] = [];
 
     const uniqueSkus = [...new Set(skus)];
     let missingSkuCount = 0;
@@ -98,28 +99,89 @@ export const buildRun = (layout: Layout, skuMaster: SkuMaster, lines: PalletLine
       if (!Array.isArray(options) || options.length === 0) {
         issues.push(`SKU ${sku} sin mapping en SKU Master`);
         missingSkuCount += 1;
-        pickPlan.push({ sku, locationId: 'N/A', sequence: Number.MAX_SAFE_INTEGER, accessX: -1, accessY: -1, status: 'missing', orderIndex });
+        unresolvedPickPlan.push({ sku, locationId: 'N/A', sequence: Number.MAX_SAFE_INTEGER, accessX: -1, accessY: -1, status: 'missing', orderIndex });
         return;
       }
-      const selected = options[0];
+      const selected = [...options].sort((a, b) => {
+        const sequenceDelta = ((Number(a.sequence) || Number.MAX_SAFE_INTEGER) - (Number(b.sequence) || Number.MAX_SAFE_INTEGER));
+        if (sequenceDelta !== 0) return sequenceDelta;
+        return a.locationId.localeCompare(b.locationId);
+      })[0];
       const accessCell = accessByLocation.get(selected.locationId);
       if (!accessCell) {
         issues.push(`Ubicación ${selected.locationId} (SKU ${sku}) no existe o no es accesible en layout`);
-        pickPlan.push({ sku, locationId: selected.locationId, sequence: Number(selected.sequence) || Number.MAX_SAFE_INTEGER, accessX: -1, accessY: -1, status: 'missing', orderIndex });
+        unresolvedPickPlan.push({ sku, locationId: selected.locationId, sequence: Number(selected.sequence) || Number.MAX_SAFE_INTEGER, accessX: -1, accessY: -1, status: 'missing', orderIndex });
         return;
       }
       const sequence = Number(selected.sequence);
       const safeSequence = Number.isFinite(sequence) ? sequence : Number.MAX_SAFE_INTEGER;
-      stops.push({ sku, locationId: selected.locationId, sequence: safeSequence, accessCell });
-      pickPlan.push({ sku, locationId: selected.locationId, sequence: safeSequence, accessX: accessCell.x, accessY: accessCell.y, orderIndex });
+      unresolvedPickPlan.push({ sku, locationId: selected.locationId, sequence: safeSequence, accessX: accessCell.x, accessY: accessCell.y, orderIndex });
     });
 
-    stops.sort((a, b) => a.sequence - b.sequence);
-    pickPlan.sort((a, b) => (a.sequence - b.sequence) || (a.orderIndex - b.orderIndex));
+    const pickPlanByLocation = new Map<string, { sku: string; locationId: string; sequence: number; accessX: number; accessY: number; orderIndex: number; status?: 'missing'; skusInLocation: string[] }>();
+    unresolvedPickPlan.forEach((pick) => {
+      if (pick.status === 'missing') return;
+      const current = pickPlanByLocation.get(pick.locationId);
+      if (!current) {
+        pickPlanByLocation.set(pick.locationId, { ...pick, skusInLocation: [pick.sku] });
+        return;
+      }
+
+      const nextSkus = current.skusInLocation.includes(pick.sku) ? current.skusInLocation : [...current.skusInLocation, pick.sku].sort((a, b) => a.localeCompare(b));
+      const shouldReplace = pick.sequence < current.sequence || (pick.sequence === current.sequence && pick.sku.localeCompare(current.sku) < 0);
+      if (shouldReplace) {
+        pickPlanByLocation.set(pick.locationId, { ...pick, skusInLocation: nextSkus });
+        return;
+      }
+
+      pickPlanByLocation.set(pick.locationId, { ...current, skusInLocation: nextSkus });
+    });
+
+    const normalizedPickPlan = [
+      ...Array.from(pickPlanByLocation.values()),
+      ...unresolvedPickPlan.filter((pick) => pick.status === 'missing'),
+    ].sort((a, b) => {
+      const sequenceDelta = a.sequence - b.sequence;
+      if (sequenceDelta !== 0) return sequenceDelta;
+      const skuDelta = a.sku.localeCompare(b.sku);
+      if (skuDelta !== 0) return skuDelta;
+      const locationDelta = a.locationId.localeCompare(b.locationId);
+      if (locationDelta !== 0) return locationDelta;
+      return a.orderIndex - b.orderIndex;
+    });
+
+    const pickPlan = normalizedPickPlan.map(({ orderIndex, ...item }) => item);
+    const stops = pickPlan
+      .filter((item) => item.status !== 'missing')
+      .map((item) => ({
+        sku: item.sku,
+        locationId: item.locationId,
+        sequence: item.sequence,
+        accessCell: { x: item.accessX, y: item.accessY },
+      }));
+
+    if (isDev) {
+      for (let i = 0; i < pickPlan.length - 1; i += 1) {
+        if (pickPlan[i].sequence > pickPlan[i + 1].sequence) {
+          console.error('[buildRun] pickPlan fuera de orden', { palletId, pickPlan });
+          break;
+        }
+      }
+    }
 
     let steps = 0;
     let hasPath = true;
     const pathStops = [start, ...stops.map((stop) => stop.accessCell), end];
+    if (isDev) {
+      console.info('[buildRun] routing stops', {
+        palletId,
+        stops: [
+          { type: 'START', x: start.x, y: start.y },
+          ...stops.map((stop) => ({ sequence: stop.sequence, locationId: stop.locationId, x: stop.accessCell.x, y: stop.accessCell.y })),
+          { type: 'END', x: end.x, y: end.y },
+        ],
+      });
+    }
     for (let i = 0; i < pathStops.length - 1; i += 1) {
       const a = pathStops[i];
       const b = pathStops[i + 1];
@@ -150,7 +212,7 @@ export const buildRun = (layout: Layout, skuMaster: SkuMaster, lines: PalletLine
       hasPath,
       issues,
       stops: stops.map((stop) => ({ locationId: stop.locationId, sequence: stop.sequence })),
-      pickPlan: pickPlan.map(({ orderIndex, ...item }) => item),
+      pickPlan,
     });
   });
 

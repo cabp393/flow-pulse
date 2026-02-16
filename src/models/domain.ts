@@ -70,6 +70,7 @@ export interface RunPickPlanItem {
   sequence: number;
   accessX: number;
   accessY: number;
+  skusInLocation?: string[];
   status?: 'missing';
 }
 
