@@ -24,6 +24,7 @@ import { TopBar } from './components/TopBar';
 import { AdvancedPage } from './pages/AdvancedPage';
 import { compactTimestamp, downloadFile, sanitizeFileToken, toSkuMasterCsv, validateImportedLayout } from './utils/transfer';
 import { parseSkuMasterCsv } from './utils/parsers';
+import { formatStorageMegabytes, getStorageUsage } from './storage/storageMonitor';
 
 const tabs = ['home', 'layouts', 'layout-editor', 'sku', 'pallets', 'results', 'compare', 'player-compare', 'advanced'] as const;
 type Tab = (typeof tabs)[number];
@@ -113,10 +114,17 @@ export function App() {
     discard: () => {},
   });
   const [storageNotice, setStorageNotice] = useState<string | undefined>(() => loadStorageNotice());
+  const [storageHealth, setStorageHealth] = useState<{ label: string; warning: boolean }>();
 
   useEffect(() => {
     saveState(state);
     setStorageNotice(loadStorageNotice());
+    getStorageUsage().then((usage) => {
+      const used = formatStorageMegabytes(usage.usedBytes);
+      const quota = usage.quotaBytes ? formatStorageMegabytes(usage.quotaBytes) : 'cuota no disponible';
+      const ratioText = usage.usageRatio !== undefined ? ` (${Math.round(usage.usageRatio * 100)}%)` : '';
+      setStorageHealth({ label: `${used} / ${quota}${ratioText}`, warning: usage.warning });
+    });
   }, [state]);
   useEffect(() => savePlayerComparePreferences(playerComparePrefs), [playerComparePrefs]);
   useEffect(() => {
@@ -268,7 +276,7 @@ export function App() {
 
   return (
     <div className="app">
-      <TopBar tab={tab} tabs={topNavTabs} onNavigate={(item) => navigateTab(item as Tab)} />
+      <TopBar tab={tab} tabs={topNavTabs} onNavigate={(item) => navigateTab(item as Tab)} storageStatus={storageHealth?.label} />
       {storageNotice && <p className="toast-success">{storageNotice}</p>}
 
       {tab === 'home' && (
@@ -371,6 +379,7 @@ export function App() {
       {tab === 'advanced' && (
         <AdvancedPage
           layouts={state.layouts}
+          storageHealth={storageHealth}
           onResetStorage={() => {
             clearState();
             setState(loadState());

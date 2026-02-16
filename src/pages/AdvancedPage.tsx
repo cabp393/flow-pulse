@@ -4,6 +4,10 @@ import { ConfirmModal } from '../components/ConfirmModal';
 
 interface Props {
   layouts: Layout[];
+  storageHealth?: {
+    label: string;
+    warning: boolean;
+  };
   onResetStorage: () => void;
   onClearOldRuns: () => void;
   onImportLayout: (payload: string) => { ok: boolean; message: string };
@@ -14,6 +18,7 @@ type ConfirmKind = 'reset' | 'clear-runs' | undefined;
 
 export function AdvancedPage({
   layouts,
+  storageHealth,
   onResetStorage,
   onClearOldRuns,
   onImportLayout,
@@ -45,6 +50,11 @@ export function AdvancedPage({
   return (
     <div className="page advanced-page">
       <h2>Avanzado</h2>
+      {storageHealth && (
+        <p className={storageHealth.warning ? 'toast-error' : 'toast-success'}>
+          Almacenamiento local: {storageHealth.label}
+        </p>
+      )}
       <ul className="advanced-actions">
         <li>
           <div>
