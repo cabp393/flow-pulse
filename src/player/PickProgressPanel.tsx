@@ -8,6 +8,11 @@ interface PickProgressPanelProps {
   hasPath: boolean;
 }
 
+const renderSequence = (sequence: number): string => {
+  if (!Number.isFinite(sequence) || sequence >= Number.MAX_SAFE_INTEGER) return '—';
+  return String(sequence);
+};
+
 export function PickProgressPanel({ path, stepIndex, pickPlan, hasPath }: PickProgressPanelProps) {
   const items = usePickProgress(pickPlan, path, stepIndex);
 
@@ -15,13 +20,28 @@ export function PickProgressPanel({ path, stepIndex, pickPlan, hasPath }: PickPr
     <div className="pick-progress-panel">
       <small>Pasos totales: {path.length > 0 ? path.length : '—'}</small>
       {!hasPath && <small>Sin ruta / issues</small>}
-      <ol className="pick-progress-list">
-        {items.map((item, index) => (
-          <li key={`${item.sku}-${index}`}>
-            {item.sku} - {item.icon}
-          </li>
-        ))}
-      </ol>
+      <table className="pick-progress-table">
+        <thead>
+          <tr>
+            <th>Indice</th>
+            <th>sku</th>
+            <th>ubicacion</th>
+            <th>secuencia</th>
+            <th>estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item) => (
+            <tr key={`${item.index}-${item.sku}`}>
+              <td>{item.index}</td>
+              <td>{item.sku}</td>
+              <td>{item.locationId || '—'}</td>
+              <td>{renderSequence(item.sequence)}</td>
+              <td>{item.icon}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

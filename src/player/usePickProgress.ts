@@ -3,7 +3,10 @@ import type { Coord, RunPickPlanItem } from '../models/domain';
 import { keyOf } from '../utils/layout';
 
 export interface PickProgressItem {
+  index: number;
   sku: string;
+  locationId: string;
+  sequence: number;
   icon: '🟢' | '🔴' | '⚠️' | '·';
 }
 
@@ -36,10 +39,16 @@ export const resolvePickProgress = (pickPlan: RunPickPlanItem[], path: Coord[], 
   const nextPickIndex = pickPlan.findIndex((pick, index) => pick.status !== 'missing' && !completed.has(index));
 
   return pickPlan.map((pick, index) => {
-    if (pick.status === 'missing') return { sku: pick.sku, icon: '⚠️' };
-    if (completed.has(index)) return { sku: pick.sku, icon: '🟢' };
-    if (index === nextPickIndex) return { sku: pick.sku, icon: '🔴' };
-    return { sku: pick.sku, icon: '·' };
+    if (pick.status === 'missing') {
+      return { index: index + 1, sku: pick.sku, locationId: pick.locationId, sequence: pick.sequence, icon: '⚠️' };
+    }
+    if (completed.has(index)) {
+      return { index: index + 1, sku: pick.sku, locationId: pick.locationId, sequence: pick.sequence, icon: '🟢' };
+    }
+    if (index === nextPickIndex) {
+      return { index: index + 1, sku: pick.sku, locationId: pick.locationId, sequence: pick.sequence, icon: '🔴' };
+    }
+    return { index: index + 1, sku: pick.sku, locationId: pick.locationId, sequence: pick.sequence, icon: '·' };
   });
 };
 

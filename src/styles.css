@@ -223,10 +223,15 @@ textarea { width: 100%; }
   gap: 2px;
 }
 
-.pick-progress-list {
-  margin: 0;
-  padding-left: 16px;
+.pick-progress-table {
+  width: 100%;
+  border-collapse: collapse;
   font-size: var(--fs-12);
-  display: grid;
-  gap: 1px;
+}
+
+.pick-progress-table th,
+.pick-progress-table td {
+  border: 1px solid #e5e7eb;
+  padding: 2px 4px;
+  text-align: left;
 }
