@@ -143,15 +143,16 @@ export function PalletImportPage({ layouts, activeLayoutId, masters, activeSkuMa
   return (
     <div>
       <h2>Run Builder</h2>
-      <label>Layout<select value={activeLayoutId ?? ''} onChange={(e) => onSelectLayout(e.target.value)}><option value="">--</option>{layouts.map((layout) => <option key={layout.layoutId} value={layout.layoutId}>{layout.name}</option>)}</select></label>
-      <label>SKU Master<select value={selectedMasterId} onChange={(e) => setSelectedMasterId(e.target.value)}><option value="">--</option>{masters.map((master) => <option key={master.skuMasterId} value={master.skuMasterId}>{master.name}</option>)}</select></label>
       <input type="file" accept=".xlsx" onChange={(e) => {
         const file = e.target.files?.[0];
         setSelectedFile(file);
         setWarningSummary('');
         setError(undefined);
-        setInfo(file ? `Archivo listo: ${file.name}` : '');
+        setInfo(file ? `Archivo listo: ${file.name}` : 'Sin archivos seleccionados');
       }} />
+      {!selectedFile && <small>Sin archivos seleccionados</small>}
+      <label>Layout<select value={activeLayoutId ?? ''} onChange={(e) => onSelectLayout(e.target.value)}><option value="">--</option>{layouts.map((layout) => <option key={layout.layoutId} value={layout.layoutId}>{layout.name}</option>)}</select></label>
+      <label>SKU Master<select value={selectedMasterId} onChange={(e) => setSelectedMasterId(e.target.value)}><option value="">--</option>{masters.map((master) => <option key={master.skuMasterId} value={master.skuMasterId}>{master.name}</option>)}</select></label>
       <button
         className="btn-with-icon"
         disabled={!selectedLayout || !selectedMaster || !selectedFile || isRunning}

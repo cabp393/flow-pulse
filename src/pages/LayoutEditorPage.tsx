@@ -187,7 +187,7 @@ export function LayoutEditorPage({
       </div>
 
       <section className="home-section" style={{ marginTop: 16 }}>
-        <div className="home-section-header"><h3>Layouts guardados</h3><span>{layouts.length}</span></div>
+        <div className="home-section-header"><h3>Layouts</h3><span>{layouts.length}</span></div>
         <LayoutList
           items={layouts}
           activeLayoutId={activeLayoutId}

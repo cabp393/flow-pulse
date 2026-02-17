@@ -14,18 +14,17 @@ import {
   saveState,
   loadStorageNotice,
 } from './storage/localRepo';
-import { insertRun, clearOldRuns, removeRun } from './storage/runRepo';
+import { insertRun, removeRun } from './storage/runRepo';
 import { ComparePage } from './compare/ComparePage';
 import { PlayerComparePage } from './player/PlayerComparePage';
 import { createNewLayout, duplicateLayout, getMaxLayouts, insertLayout, removeLayout, renameLayout, updateLayout } from './storage/layoutRepo';
 import { HomePage } from './pages/HomePage';
 import { createSkuMaster, duplicateSkuMaster, removeSkuMaster, renameSkuMaster } from './storage/skuMasterRepo';
 import { TopBar } from './components/TopBar';
-import { AdvancedPage } from './pages/AdvancedPage';
 import { compactTimestamp, downloadFile, sanitizeFileToken, toSkuMasterCsv, validateImportedLayout } from './utils/transfer';
 import { parseSkuMasterCsv } from './utils/parsers';
 
-const tabs = ['home', 'layouts', 'layout-editor', 'sku', 'pallets', 'results', 'compare', 'player-compare', 'advanced'] as const;
+const tabs = ['home', 'layouts', 'layout-editor', 'sku', 'pallets', 'results', 'compare', 'player-compare'] as const;
 type Tab = (typeof tabs)[number];
 
 const topNavTabs: Array<{ id: Tab; label: string }> = [
@@ -35,7 +34,6 @@ const topNavTabs: Array<{ id: Tab; label: string }> = [
   { id: 'results', label: 'Heatmap' },
   { id: 'compare', label: 'Comparar' },
   { id: 'player-compare', label: 'Player' },
-  { id: 'advanced', label: 'Avanzado' },
 ];
 
 const pathToTab = (pathname: string, hash: string): Tab => {
@@ -101,6 +99,25 @@ const ensureUniqueLayoutName = (name: string, existing: Layout[]): string => {
   return `${importedBase} ${suffix}`;
 };
 
+const fileNameToImportName = (fileName: string): string => {
+  const withoutExtension = fileName.replace(/\.[^/.]+$/, '').trim();
+  const readable = withoutExtension
+    .normalize('NFKC')
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return readable || 'Importado';
+};
+
+const ensureUniqueSkuMasterName = (name: string, existing: AppState['skuMasters']): string => {
+  if (!existing.some((master) => master.name === name)) return name;
+  const importedBase = `${name} (importado)`;
+  if (!existing.some((master) => master.name === importedBase)) return importedBase;
+  let suffix = 2;
+  while (existing.some((master) => master.name === `${importedBase} ${suffix}`)) suffix += 1;
+  return `${importedBase} ${suffix}`;
+};
+
 export function App() {
   const [state, setState] = useState<AppState>(() => loadState());
   const [tab, setTab] = useState<Tab>(() => pathToTab(window.location.pathname, window.location.hash));
@@ -160,7 +177,7 @@ export function App() {
     downloadFile(filename, JSON.stringify(state.layouts, null, 2), 'application/json');
   };
 
-  const importLayout = (jsonPayload: string): { ok: boolean; message: string } => {
+  const importLayout = (jsonPayload: string, fileName?: string): { ok: boolean; message: string } => {
     try {
       const parsed = JSON.parse(jsonPayload);
       const source = Array.isArray(parsed) ? parsed : [parsed];
@@ -175,7 +192,8 @@ export function App() {
           return current;
         }
 
-        const uniqueName = ensureUniqueLayoutName(validation.layout.name, current.layouts);
+        const importName = fileName ? fileNameToImportName(fileName) : validation.layout.name;
+        const uniqueName = ensureUniqueLayoutName(importName, current.layouts);
         const nextLayout: Layout = {
           ...validation.layout,
           layoutId: current.layouts.some((layout) => layout.layoutId === validation.layout.layoutId) ? crypto.randomUUID() : validation.layout.layoutId,
@@ -204,34 +222,37 @@ export function App() {
     downloadFile(filename, toSkuMasterCsv(master.rows), 'text/csv;charset=utf-8');
   };
 
-  const importSkuMasterCsv = (csvPayload: string, layoutId?: string): { ok: boolean; message: string } => {
+  const importSkuMasterCsv = (csvPayload: string, fileName?: string): { ok: boolean; message: string } => {
     try {
+      const headerRow = csvPayload
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .find(Boolean);
+      if (!headerRow) return { ok: false, message: 'CSV vacío.' };
+      const normalizedHeader = headerRow.toLowerCase().replace(/\s+/g, '');
+      if (normalizedHeader !== 'ubicacion,secuencia,sku') {
+        return { ok: false, message: 'CSV inválido: se requiere header "ubicacion,secuencia,sku".' };
+      }
+
       const parsed = parseSkuMasterCsv(csvPayload);
       if (!parsed.rows.length) return { ok: false, message: 'CSV vacío o sin filas válidas.' };
       if (parsed.rows.some((row) => !row.locationId.trim())) {
         return { ok: false, message: 'Formato inválido: ubicacion no puede ser vacía.' };
       }
 
-      const selectedLayout = layoutId ? state.layouts.find((layout) => layout.layoutId === layoutId) : undefined;
-      if (selectedLayout) {
-        const validIds = new Set<string>();
-        selectedLayout.gridData.flat().forEach((cell) => {
-          if (cell.type === 'PICK' && cell.pick?.locationId) validIds.add(cell.pick.locationId);
-        });
-        const invalid = parsed.rows.find((row) => !validIds.has(row.locationId));
-        if (invalid) return { ok: false, message: `Ubicación inválida para layout seleccionado: ${invalid.locationId}.` };
-      }
-
-      const importedName = `SKU Master importado ${new Date().toLocaleDateString()}`;
-      const nextMaster = createSkuMaster(importedName, parsed.rows);
-      setState((current) => ({
-        ...current,
-        skuMasters: [nextMaster, ...current.skuMasters],
-        activeSkuMasterId: nextMaster.skuMasterId,
-      }));
+      let importedName = '';
+      setState((current) => {
+        importedName = ensureUniqueSkuMasterName(fileName ? fileNameToImportName(fileName) : `SKU Master importado ${new Date().toLocaleDateString()}`, current.skuMasters);
+        const nextMaster = createSkuMaster(importedName, parsed.rows);
+        return {
+          ...current,
+          skuMasters: [nextMaster, ...current.skuMasters],
+          activeSkuMasterId: nextMaster.skuMasterId,
+        };
+      });
 
       const warningText = parsed.warnings.length ? ` (${parsed.warnings.length} duplicados omitidos)` : '';
-      return { ok: true, message: `SKU master importado con ${parsed.rows.length} filas${warningText}.` };
+      return { ok: true, message: `SKU master "${importedName}" importado con ${parsed.rows.length} filas${warningText}.` };
     } catch (error) {
       return { ok: false, message: (error as Error).message };
     }
@@ -322,6 +343,13 @@ export function App() {
           }))}
           onDeleteRun={(runId) => setState((s) => ({ ...s, runs: removeRun(s.runs, runId) }))}
           onGoToResults={() => navigateTab('results')}
+          onImportLayout={importLayout}
+          onImportSkuMasterCsv={importSkuMasterCsv}
+          onResetStorage={() => {
+            clearState();
+            setState(loadState());
+            setPlayerComparePrefs(defaultPlayerComparePreferences());
+          }}
         />
       )}
       {tab === 'layouts' && <LayoutsPage layouts={state.layouts} activeLayoutId={activeLayout?.layoutId} onCreate={() => {
@@ -336,8 +364,8 @@ export function App() {
       }} onRename={(layoutId, name) => setState((s) => ({ ...s, layouts: renameLayout(s.layouts, layoutId, name) }))} onDelete={(layoutId) => setState((s) => {
         const nextLayouts = removeLayout(s.layouts, layoutId);
         return { ...s, layouts: nextLayouts, activeLayoutId: nextLayouts.some((l) => l.layoutId === s.activeLayoutId) ? s.activeLayoutId : nextLayouts[0]?.layoutId };
-      })} onExport={exportLayoutsJson} onExportOne={exportLayout} onImport={(payload) => {
-        const result = importLayout(payload);
+      })} onExport={exportLayoutsJson} onExportOne={exportLayout} onImport={(payload, fileName) => {
+        const result = importLayout(payload, fileName);
         if (!result.ok) window.alert(result.message);
       }} />}
       {tab === 'layout-editor' && <LayoutEditorPage
@@ -368,19 +396,6 @@ export function App() {
         navigateToPlayerFromCompare(compareRunAId, compareRunBId, palletId);
       }} />}
       {tab === 'player-compare' && <PlayerComparePage layouts={state.layouts} runs={state.runs} prefs={playerComparePrefs} onChangePrefs={setPlayerComparePrefs} />}
-      {tab === 'advanced' && (
-        <AdvancedPage
-          layouts={state.layouts}
-          onResetStorage={() => {
-            clearState();
-            setState(loadState());
-            setPlayerComparePrefs(defaultPlayerComparePreferences());
-          }}
-          onClearOldRuns={() => setState((s) => ({ ...s, runs: clearOldRuns(s.runs) }))}
-          onImportLayout={importLayout}
-          onImportSkuMasterCsv={importSkuMasterCsv}
-        />
-      )}
     </div>
   );
 }

@@ -10,7 +10,7 @@ interface Props {
   masters: SkuMaster[];
   activeSkuMasterId?: string;
   onChange: (next: SkuMaster[], activeSkuMasterId?: string) => void;
-  onImport: (csvPayload: string, layoutId?: string) => { ok: boolean; message: string };
+  onImport: (csvPayload: string, fileName?: string) => { ok: boolean; message: string };
   onExportOne: (skuMasterId: string) => void;
 }
 
@@ -58,7 +58,7 @@ export function SkuMasterPage({
       if (!payload.trim()) {
         window.alert('El archivo está vacío.');
       } else {
-        const result = onImport(payload, layout.layoutId);
+        const result = onImport(payload, file.name);
         if (!result.ok) window.alert(result.message);
       }
       event.target.value = '';
@@ -122,7 +122,7 @@ export function SkuMasterPage({
       {warnings.length > 0 && <ul>{warnings.map((item) => <li key={item}>{item}</li>)}</ul>}
 
       <section className="home-section">
-        <div className="home-section-header"><h3>SKU Masters guardados</h3><span>{masters.length} ({formatStorageSize(masters)})</span></div>
+        <div className="home-section-header"><h3>SKU Masters</h3><span>{masters.length} ({formatStorageSize(masters)})</span></div>
         <SkuMasterList
           items={masters}
           activeSkuMasterId={activeSkuMasterId}
