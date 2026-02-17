@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { PlayerCompare } from '../components/PlayerCompare';
 import type { Layout, PlayerComparePreferences, RunResult } from '../models/domain';
-import { PalletSelector } from './PalletSelector';
+import { PlayerTopControls } from './PlayerTopControls';
 import { buildRunPath, hasSamePalletList } from './playerCompareUtils';
 
 const MIN_SPEED_MS = 40;
@@ -184,49 +184,59 @@ export function PlayerComparePage({
 
   return (
     <div className="page">
-      <h2>Player comparativo de runs</h2>
-      <p>Compara runs con layouts/SKU masters diferentes, siempre que usen el mismo listado de pallets.</p>
-      <div className="compare-grid-wrap">
-        <label>Run A<select value={prefs.runAId ?? ''} onChange={(event) => { lastAdvanceReasonRef.current = 'manual'; onChangePrefs({ ...prefs, runAId: event.target.value || undefined, palletIndex: 0 }); }}><option value="">--</option>{runs.map((run) => <option key={run.runId} value={run.runId}>{run.name}</option>)}</select></label>
-        <label>Run B<select value={prefs.runBId ?? ''} onChange={(event) => { lastAdvanceReasonRef.current = 'manual'; onChangePrefs({ ...prefs, runBId: event.target.value || undefined, palletIndex: 0 }); }}><option value="">--</option>{runs.map((run) => <option key={run.runId} value={run.runId}>{run.name}</option>)}</select></label>
-      </div>
-
       {!samePalletList && <p className="error">No se puede reproducir: ambos runs deben tener el mismo palletOrder.</p>}
       {(runA && !layoutA) || (runB && !layoutB) ? <p className="error">No se encontró el layout de uno de los runs seleccionados.</p> : null}
 
-      <div className="player-controls">
-        <button disabled={!canPlay || palletCount === 0} onClick={() => setStatus('playing')}>Play</button>
-        <button onClick={() => setStatus('paused')}>Pause</button>
-        <button onClick={() => { setStatus('stopped'); setStepIndex(0); }}>Stop</button>
-        <PalletSelector palletOrder={palletOrder} palletIndex={safePalletIndex} disabled={!palletCount} onChange={selectPalletById} />
-        <button disabled={!palletCount} onClick={() => selectPalletByIndex(safePalletIndex - 1)}>Prev pallet</button>
-        <button disabled={!palletCount} onClick={() => selectPalletByIndex(safePalletIndex + 1)}>Next pallet</button>
-        <button onClick={prevStep}>Prev step</button>
-        <button onClick={nextStep}>Next step</button>
-        <label>
-          Velocidad (ms)
-          <input
-            type="number"
-            min={MIN_SPEED_MS}
-            value={prefs.speedMs}
-            onChange={(event) => onChangePrefs({ ...prefs, speedMs: Math.max(MIN_SPEED_MS, Number(event.target.value) || MIN_SPEED_MS) })}
-          />
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={prefs.autoContinue}
-            onChange={(event) => onChangePrefs({ ...prefs, autoContinue: event.target.checked })}
-          />
-          Auto-continuar pallet
-        </label>
-      </div>
+      <PlayerTopControls
+        palletIndex={safePalletIndex}
+        palletTotal={palletCount}
+        palletOrder={palletOrder}
+        canPlay={canPlay}
+        playing={status === 'playing'}
+        paused={status === 'paused'}
+        stepIndex={stepIndex}
+        maxStep={maxStep}
+        onSelectPallet={selectPalletById}
+        onPlay={() => setStatus('playing')}
+        onPause={() => setStatus('paused')}
+        onStop={() => {
+          setStatus('stopped');
+          setStepIndex(0);
+        }}
+        onPrevPallet={() => selectPalletByIndex(safePalletIndex - 1)}
+        onNextPallet={() => selectPalletByIndex(safePalletIndex + 1)}
+        onPrevStep={prevStep}
+        onNextStep={nextStep}
+        autoContinue={prefs.autoContinue}
+        setAutoContinue={(nextValue) => onChangePrefs({ ...prefs, autoContinue: nextValue })}
+        speedMs={prefs.speedMs}
+        setSpeedMs={(nextValue) => onChangePrefs({ ...prefs, speedMs: nextValue })}
+        minSpeedMs={MIN_SPEED_MS}
+      />
 
-      <p>
-        Estado: {status} · Pallet {palletCount ? safePalletIndex + 1 : 0}/{Math.max(palletCount, 1)} · ID: {activePalletId ?? '-'} · Step {stepIndex}/{maxStep}
+      <p className="player-status-line">
+        {status} · pallet {palletCount ? safePalletIndex + 1 : 0}/{Math.max(palletCount, 1)} · step {stepIndex}/{maxStep}
       </p>
 
-      <PlayerCompare runA={runA} runB={runB} layoutA={layoutA} layoutB={layoutB} palletId={activePalletId} stepIndex={stepIndex} />
+      <PlayerCompare
+        runA={runA}
+        runB={runB}
+        layoutA={layoutA}
+        layoutB={layoutB}
+        palletId={activePalletId}
+        stepIndex={stepIndex}
+        runs={runs}
+        runAId={prefs.runAId}
+        runBId={prefs.runBId}
+        onSelectRunA={(runId) => {
+          lastAdvanceReasonRef.current = 'manual';
+          onChangePrefs({ ...prefs, runAId: runId, palletIndex: 0 });
+        }}
+        onSelectRunB={(runId) => {
+          lastAdvanceReasonRef.current = 'manual';
+          onChangePrefs({ ...prefs, runBId: runId, palletIndex: 0 });
+        }}
+      />
     </div>
   );
 }
