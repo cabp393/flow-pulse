@@ -1,51 +1,26 @@
 import { useMemo, useState } from 'react';
-import type { Layout, RunResult, SkuMaster } from '../models/domain';
-import { buildRun, type RunBuildProgress } from '../runs/buildRun';
+import type { Batch, Layout, SkuMaster } from '../models/domain';
 import { createRunBuildError, normalizeRunBuildError, runBuildErrorToClipboard, type RunBuildError } from '../runs/errors';
 import { parsePalletXlsx } from '../utils/parsers';
+import { serializeBatch } from '../storage/batchRepo';
 
 interface Props {
   layouts: Layout[];
   activeLayoutId?: string;
   masters: SkuMaster[];
   activeSkuMasterId?: string;
-  onGeneratedRun: (run: RunResult) => void;
+  onSaveBatchAndAnalyze: (payload: { batch: Batch; layoutId: string; skuMasterId: string }) => void;
   onSelectLayout: (layoutId: string) => void;
-  onOpenResults: () => void;
 }
 
-function RocketIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" aria-hidden="true">
-      <path d="M4.5 16.5c-1.5 1.26-2 4.5-2 4.5s3.24-.5 4.5-2c.71-.84.7-2.08-.02-2.8-.72-.72-1.96-.73-2.8-.02Z" />
-      <path d="m12 15-3-3a36.8 36.8 0 0 1 6.55-9.58 2.12 2.12 0 0 1 3 3A36.8 36.8 0 0 1 9 12" />
-      <path d="M9 12H5a2 2 0 0 0-2 2v4" />
-      <path d="M12 15v4a2 2 0 0 0 2 2h4" />
-      <circle cx="16.5" cy="7.5" r="1.5" />
-    </svg>
-  );
-}
+function RocketIcon() { return <span aria-hidden="true">🚀</span>; }
 
-const sleepTick = async () => new Promise((resolve) => window.setTimeout(resolve, 0));
-
-const formatProgress = (progress: RunBuildProgress): string => {
-  const stageLabel =
-    progress.stage === 'preparando'
-      ? 'Preparando datos'
-      : progress.stage === 'calculando'
-        ? 'Calculando rutas'
-        : 'Guardando run';
-  return `${stageLabel} · Procesados ${progress.processed} / ${progress.total} pallets`;
-};
-
-export function PalletImportPage({ layouts, activeLayoutId, masters, activeSkuMasterId, onGeneratedRun, onSelectLayout, onOpenResults }: Props) {
+export function PalletImportPage({ layouts, activeLayoutId, masters, activeSkuMasterId, onSaveBatchAndAnalyze, onSelectLayout }: Props) {
   const [selectedMasterId, setSelectedMasterId] = useState<string>(activeSkuMasterId ?? '');
   const [selectedFile, setSelectedFile] = useState<File | undefined>();
   const [info, setInfo] = useState('');
   const [isRunning, setIsRunning] = useState(false);
-  const [progress, setProgress] = useState('idle');
   const [error, setError] = useState<RunBuildError | undefined>();
-  const [warningSummary, setWarningSummary] = useState<string>('');
 
   const selectedMaster = useMemo(() => masters.find((master) => master.skuMasterId === selectedMasterId), [masters, selectedMasterId]);
   const selectedLayout = useMemo(() => layouts.find((layout) => layout.layoutId === activeLayoutId), [activeLayoutId, layouts]);
@@ -61,80 +36,32 @@ export function PalletImportPage({ layouts, activeLayoutId, masters, activeSkuMa
     }
   };
 
-  const runGeneration = async () => {
-    let stage = 'init';
+  const analyze = async () => {
     if (!selectedLayout) {
-      setError(createRunBuildError('validation', 'Debe seleccionar un layout válido.', ['Seleccione un layout antes de generar.']));
-      setInfo('');
+      setError(createRunBuildError('validation', 'Debe seleccionar un layout válido.'));
       return;
     }
     if (!selectedMaster) {
-      setError(createRunBuildError('validation', 'Debe seleccionar SKU Master.', ['Seleccione un SKU Master antes de generar.']));
-      setInfo('');
+      setError(createRunBuildError('validation', 'Debe seleccionar SKU Master.'));
       return;
     }
     if (!(selectedFile instanceof File)) {
-      setError(createRunBuildError('validation', 'Debe cargar XLSX válido.', ['Adjunte un archivo XLSX antes de generar.']));
-      setInfo('');
+      setError(createRunBuildError('validation', 'Debe cargar XLSX válido.'));
       return;
     }
 
     setError(undefined);
-    setWarningSummary('');
     setInfo('');
     setIsRunning(true);
 
     try {
-      stage = 'leyendo xlsx';
-      setProgress('Leyendo XLSX…');
-      await sleepTick();
-      if (import.meta.env.DEV) {
-        console.debug('[run-builder] stage=leyendo-xlsx', {
-          layoutName: selectedLayout.name,
-          skuMasterName: selectedMaster.name,
-          fileName: selectedFile.name,
-        });
-      }
-
       const lines = await parsePalletXlsx(selectedFile);
-      if (!lines.length) {
-        throw createRunBuildError('validation', 'El XLSX no contiene líneas para procesar.', undefined, { stage: 'leyendo xlsx' });
-      }
-
-      stage = 'calculando';
-      setProgress('Preparando datos…');
-      await sleepTick();
-
-      const { run, warnings } = await buildRun(selectedLayout, selectedMaster, lines, selectedFile.name, {
-        onProgress: (nextProgress) => {
-          setProgress(formatProgress(nextProgress));
-        },
-      });
-
-      stage = 'guardando';
-      setProgress(`Guardando run · Procesados ${run.summary.totalPallets} / ${run.summary.totalPallets} pallets`);
-      await sleepTick();
-      onGeneratedRun(run);
-
-      setInfo(`Run generado: ${run.name}`);
-      if (warnings.palletsWithIssues > 0 || warnings.missingSkuMappings > 0) {
-        setWarningSummary(`Run generada con advertencias: ${warnings.palletsWithIssues} pallets con errores, ${warnings.missingSkuMappings} SKUs sin mapping.`);
-      }
-      if (import.meta.env.DEV) {
-        console.debug('[run-builder] stage=success', { runId: run.runId, warnings });
-      }
-      setProgress('success');
+      if (!lines.length) throw createRunBuildError('validation', 'El XLSX no contiene líneas para procesar.');
+      const batch = serializeBatch(lines, selectedFile.name);
+      onSaveBatchAndAnalyze({ batch, layoutId: selectedLayout.layoutId, skuMasterId: selectedMaster.skuMasterId });
+      setInfo(`Batch guardado: ${batch.name} (${batch.stats.totalPallets} pallets)`);
     } catch (cause) {
-      const normalized = normalizeRunBuildError(cause, 'No se pudo completar la generación de la run.', { stage });
-      setError(normalized);
-      setProgress('failed');
-      if (import.meta.env.DEV) {
-        if (cause instanceof Error) {
-          console.error('[run-builder] stage=failed', { message: cause.message, stack: cause.stack, stage });
-        } else {
-          console.error('[run-builder] stage=failed', { cause, stage });
-        }
-      }
+      setError(normalizeRunBuildError(cause, 'No se pudo preparar el batch para análisis.'));
     } finally {
       setIsRunning(false);
     }
@@ -142,51 +69,16 @@ export function PalletImportPage({ layouts, activeLayoutId, masters, activeSkuMa
 
   return (
     <div>
-      <h2>Run Builder</h2>
+      <h2>Batch Builder</h2>
       <label>Layout<select value={activeLayoutId ?? ''} onChange={(e) => onSelectLayout(e.target.value)}><option value="">--</option>{layouts.map((layout) => <option key={layout.layoutId} value={layout.layoutId}>{layout.name}</option>)}</select></label>
       <label>SKU Master<select value={selectedMasterId} onChange={(e) => setSelectedMasterId(e.target.value)}><option value="">--</option>{masters.map((master) => <option key={master.skuMasterId} value={master.skuMasterId}>{master.name}</option>)}</select></label>
-      <input type="file" accept=".xlsx" onChange={(e) => {
-        const file = e.target.files?.[0];
-        setSelectedFile(file);
-        setWarningSummary('');
-        setError(undefined);
-        setInfo(file ? `Archivo listo: ${file.name}` : '');
-      }} />
-      <button
-        className="btn-with-icon"
-        disabled={!selectedLayout || !selectedMaster || !selectedFile || isRunning}
-        onClick={() => {
-          void runGeneration();
-        }}
-      >
+      <input type="file" accept=".xlsx" onChange={(e) => setSelectedFile(e.target.files?.[0])} />
+      <button className="btn-with-icon" disabled={!selectedLayout || !selectedMaster || !selectedFile || isRunning} onClick={() => { void analyze(); }}>
         <RocketIcon />
-        <span>{isRunning ? 'Generando…' : 'Generar Run'}</span>
+        <span>{isRunning ? 'Analizando…' : 'Analizar'}</span>
       </button>
-      {isRunning && <p className="run-progress"><span className="spinner" aria-hidden="true" /> {progress}</p>}
-      {warningSummary && (
-        <p className="toast-success">
-          {warningSummary} <button onClick={onOpenResults}>Ver detalle en Heatmap/Run</button>
-        </p>
-      )}
       {info && <p>{info}</p>}
-
-      {error && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <div className="modal confirm-modal">
-            <h3>Falló al generar la run</h3>
-            <p>{error.message}</p>
-            <p>
-              <strong>Etapa:</strong> {error.context?.stage ?? 'desconocida'}
-              {error.context?.palletId ? <> · <strong>Pallet:</strong> {error.context.palletId}</> : null}
-            </p>
-            {error.details?.length ? <ul className="validation-list">{error.details.map((item) => <li key={item}>{item}</li>)}</ul> : null}
-            <div className="modal-actions">
-              <button onClick={() => setError(undefined)}>Cerrar</button>
-              <button onClick={() => void copyErrorDetails()}>Copiar diagnóstico</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {error && <div className="error">{error.message} <button onClick={() => void copyErrorDetails()}>Copiar diagnóstico</button></div>}
     </div>
   );
 }

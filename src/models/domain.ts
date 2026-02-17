@@ -59,6 +59,32 @@ export interface PalletLine {
   sku: string;
 }
 
+export interface BatchStats {
+  totalPallets: number;
+  totalLines: number;
+  uniqueSkus: number;
+}
+
+export interface Batch {
+  batchId: string;
+  name: string;
+  createdAt: string;
+  palletOrder: string[];
+  skuDict: string[];
+  skuIdxFlat: number[];
+  offsets: number[];
+  stats: BatchStats;
+}
+
+export interface RunConfig {
+  runConfigId: string;
+  name: string;
+  createdAt: string;
+  layoutId: string;
+  skuMasterId: string;
+  batchId: string;
+}
+
 export interface RunPalletStop {
   locationId: string;
   sequence: number;
@@ -129,5 +155,6 @@ export interface AppState {
   activeLayoutId?: string;
   skuMasters: SkuMaster[];
   activeSkuMasterId?: string;
-  runs: RunResult[];
+  batches: Batch[];
+  runConfigs: RunConfig[];
 }
