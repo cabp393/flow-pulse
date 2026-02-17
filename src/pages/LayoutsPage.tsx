@@ -14,7 +14,7 @@ interface Props {
   onSelect: (layoutId: string) => void;
   onExport: () => void;
   onExportOne: (layoutId: string) => void;
-  onImport: (jsonPayload: string) => void;
+  onImport: (jsonPayload: string, fileName?: string) => void;
 }
 
 export function LayoutsPage({
@@ -44,7 +44,7 @@ export function LayoutsPage({
       if (!payload.trim()) {
         window.alert('El archivo está vacío.');
       } else {
-        onImport(payload);
+        onImport(payload, file.name);
       }
       event.target.value = '';
     };

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState, type ChangeEvent } from 'react';
 import type { Layout, RunResult, SkuMaster } from '../models/domain';
 import { PalletImportPage } from './PalletImportPage';
 import { ConfirmModal } from '../components/ConfirmModal';
@@ -29,6 +29,9 @@ interface Props {
   onRenameRun: (runId: string, name: string) => void;
   onDeleteRun: (runId: string) => void;
   onGoToResults: () => void;
+  onImportLayout: (payload: string, fileName?: string) => { ok: boolean; message: string };
+  onImportSkuMasterCsv: (payload: string, fileName?: string) => { ok: boolean; message: string };
+  onResetStorage: () => void;
 }
 
 type ConfirmState =
@@ -69,8 +72,32 @@ export function HomePage({
   onRenameRun,
   onDeleteRun,
   onGoToResults,
+  onImportLayout,
+  onImportSkuMasterCsv,
+  onResetStorage,
 }: Props) {
   const [confirmState, setConfirmState] = useState<ConfirmState>();
+  const [status, setStatus] = useState('');
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const layoutInputRef = useRef<HTMLInputElement>(null);
+  const skuInputRef = useRef<HTMLInputElement>(null);
+
+  const onImportFile = (event: ChangeEvent<HTMLInputElement>, handler: (payload: string, fileName: string) => void) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const payload = typeof reader.result === 'string' ? reader.result : '';
+      handler(payload, file.name);
+      event.target.value = '';
+    };
+    reader.onerror = () => {
+      setStatus('No se pudo leer el archivo seleccionado.');
+      event.target.value = '';
+    };
+    reader.readAsText(file);
+  };
 
   const confirmAction = () => {
     if (!confirmState) return;
@@ -95,7 +122,7 @@ export function HomePage({
       </section>
 
       <section className="page home-section">
-        <div className="home-section-header"><h3>Layouts guardados</h3><span>{layouts.length} ({formatStorageSize(layouts)})</span></div>
+        <div className="home-section-header"><h3>Layouts</h3><span>{layouts.length} ({formatStorageSize(layouts)})</span></div>
         <LayoutList
           items={layouts}
           activeLayoutId={activeLayoutId}
@@ -110,7 +137,7 @@ export function HomePage({
       </section>
 
       <section className="page home-section">
-        <div className="home-section-header"><h3>SKU Masters guardados</h3><span>{skuMasters.length} ({formatStorageSize(skuMasters)})</span></div>
+        <div className="home-section-header"><h3>SKU Masters</h3><span>{skuMasters.length} ({formatStorageSize(skuMasters)})</span></div>
         <SkuMasterList
           items={skuMasters}
           activeSkuMasterId={activeSkuMasterId}
@@ -124,7 +151,7 @@ export function HomePage({
       </section>
 
       <section className="page home-section">
-        <div className="home-section-header"><h3>Runs guardados</h3><span>{runs.length} ({formatStorageSize(runs)})</span></div>
+        <div className="home-section-header"><h3>Runs</h3><span>{runs.length} ({formatStorageSize(runs)})</span></div>
         <ul className="home-saved-list">
           {runs.map((run) => (
             <li className="inline-row" key={run.runId}>
@@ -147,6 +174,41 @@ export function HomePage({
         </ul>
       </section>
 
+      <section className="page home-section home-section-compact">
+        <div className="home-section-header"><h3>Importar</h3></div>
+        <div className="toolbar compact-toolbar">
+          <button type="button" onClick={() => layoutInputRef.current?.click()}>Importar Layout (JSON)</button>
+          <input
+            ref={layoutInputRef}
+            type="file"
+            accept="application/json,.json"
+            style={{ display: 'none' }}
+            onChange={(event) => onImportFile(event, (payload, fileName) => {
+              const result = onImportLayout(payload, fileName);
+              setStatus(result.message);
+            })}
+          />
+          <button type="button" onClick={() => skuInputRef.current?.click()}>Importar SKU Master (CSV)</button>
+          <input
+            ref={skuInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            style={{ display: 'none' }}
+            onChange={(event) => onImportFile(event, (payload, fileName) => {
+              const result = onImportSkuMasterCsv(payload, fileName);
+              setStatus(result.message);
+            })}
+          />
+        </div>
+      </section>
+
+      <section className="page home-section home-section-compact">
+        <div className="home-section-header"><h3>Reset</h3></div>
+        <button className="danger" onClick={() => setShowResetConfirm(true)}>Reset completo</button>
+      </section>
+
+      {status && <p className="toast-success">{status}</p>}
+
       <ConfirmModal
         open={Boolean(confirmState)}
         title="Confirmar eliminación"
@@ -155,6 +217,21 @@ export function HomePage({
         cancelLabel="Cancelar"
         onCancel={() => setConfirmState(undefined)}
         onConfirm={confirmAction}
+        danger
+      />
+
+      <ConfirmModal
+        open={showResetConfirm}
+        title="Confirmar reset completo"
+        description="Esta acción borrará layouts, SKU masters y runs."
+        confirmLabel="Aceptar"
+        cancelLabel="Cancelar"
+        onCancel={() => setShowResetConfirm(false)}
+        onConfirm={() => {
+          onResetStorage();
+          setStatus('Se borraron layouts, SKU masters y runs.');
+          setShowResetConfirm(false);
+        }}
         danger
       />
     </div>
