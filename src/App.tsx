@@ -154,6 +154,16 @@ export function App() {
     window.history.pushState({}, '', next === 'home' ? '/#/' : `/#/${next}`);
   };
 
+
+
+  const openPalletInPlayer = (palletId: string) => {
+    if (!compareRunAId || !compareRunBId) return;
+    setPlayerComparePrefs((prev) => ({ ...prev, runAId: compareRunAId, runBId: compareRunBId, palletIndex: Math.max(0, prev.palletIndex) }));
+    navigateTab('player-compare');
+    const params = new URLSearchParams({ runA: compareRunAId, runB: compareRunBId, pallet: palletId, auto: '0' });
+    window.history.pushState({}, '', `/#/player-compare?${params.toString()}`);
+  };
+
   const saveBatchAndAnalyze = ({ batch, layoutId, skuMasterId }: { batch: Batch; layoutId: string; skuMasterId: string }) => {
     const layout = state.layouts.find((item) => item.layoutId === layoutId);
     const master = state.skuMasters.find((item) => item.skuMasterId === skuMasterId);
@@ -171,7 +181,7 @@ export function App() {
     {tab === 'layout-editor' && <LayoutEditorPage layout={activeLayout} layouts={state.layouts} activeLayoutId={activeLayout?.layoutId} setLayout={setLayout} onEditorStateChange={setLayoutEditorState} onSelectLayout={(layoutId) => setState((current) => ({ ...current, activeLayoutId: layoutId }))} onEditLayout={() => undefined} onDuplicateLayout={() => undefined} onRenameLayout={() => undefined} onExportLayout={exportLayout} onDeleteLayout={() => undefined} />}
     {tab === 'sku' && activeLayout && <SkuMasterPage layout={activeLayout} masters={state.skuMasters} activeSkuMasterId={state.activeSkuMasterId} onChange={(skuMasters, activeSkuMasterId) => setState((s) => ({ ...s, skuMasters, activeSkuMasterId }))} onImport={importSkuMasterCsv} onExportOne={exportSkuMasterCsv} />}
     {tab === 'results' && <ResultsPage layouts={state.layouts} batches={state.batches} runConfigs={state.runConfigs} masters={state.skuMasters} selectedRunId={compareRunAId} onSelectRun={setCompareRunAId} />}
-    {tab === 'compare' && <ComparePage layouts={state.layouts} batches={state.batches} masters={state.skuMasters} runConfigs={state.runConfigs} runAId={compareRunAId} runBId={compareRunBId} onSelect={(a, b) => { setCompareRunAId(a); setCompareRunBId(b); setPlayerComparePrefs((prev) => ({ ...prev, runAId: a, runBId: b })); }} onOpenPalletInPlayer={() => navigateTab('player-compare')} />}
+    {tab === 'compare' && <ComparePage layouts={state.layouts} batches={state.batches} masters={state.skuMasters} runConfigs={state.runConfigs} runAId={compareRunAId} runBId={compareRunBId} onSelect={(a, b) => { setCompareRunAId(a); setCompareRunBId(b); setPlayerComparePrefs((prev) => ({ ...prev, runAId: a, runBId: b })); }} onOpenPalletInPlayer={openPalletInPlayer} />}
     {tab === 'player-compare' && <PlayerComparePage layouts={state.layouts} batches={state.batches} masters={state.skuMasters} runConfigs={state.runConfigs} prefs={playerComparePrefs} onChangePrefs={setPlayerComparePrefs} />}
     {tab === 'advanced' && <AdvancedPage layouts={state.layouts} batches={state.batches} onResetStorage={() => { clearState(); setState(loadState()); setPlayerComparePrefs(defaultPlayerComparePreferences()); }} onImportLayout={importLayout} onImportSkuMasterCsv={importSkuMasterCsv} onExportBatchJson={exportBatchJson} onImportBatchJson={importBatchJson} />}
   </div>;

@@ -5,7 +5,7 @@ const DASH = '—';
 
 const buildPalletOrder = (runA?: RunResult, runB?: RunResult): string[] => {
   const inA = runA?.palletOrder ?? [];
-  const inB = runB?.palletResults.map((item) => item.palletId) ?? [];
+  const inB = runB?.palletOrder ?? runB?.palletResults.map((item) => item.palletId) ?? [];
   const merged = [...inA];
   inB.forEach((palletId) => {
     if (!merged.includes(palletId)) merged.push(palletId);
@@ -13,9 +13,16 @@ const buildPalletOrder = (runA?: RunResult, runB?: RunResult): string[] => {
   return merged;
 };
 
+const toFiniteNumber = (value: unknown): number | undefined => {
+  const asNumber = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(asNumber) ? asNumber : undefined;
+};
+
 const getStepsDelta = (stepsA?: number, stepsB?: number): number | undefined => {
-  if (typeof stepsA !== 'number' || typeof stepsB !== 'number') return undefined;
-  return stepsB - stepsA;
+  const safeA = toFiniteNumber(stepsA);
+  const safeB = toFiniteNumber(stepsB);
+  if (safeA === undefined || safeB === undefined) return undefined;
+  return safeB - safeA;
 };
 
 export function PalletCompareTable({

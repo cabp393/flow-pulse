@@ -19,6 +19,13 @@ export function PlayerComparePage({ layouts, batches, masters, runConfigs, prefs
   const configA = useMemo(() => runConfigs.find((run) => run.runConfigId === prefs.runAId), [prefs.runAId, runConfigs]);
   const configB = useMemo(() => runConfigs.find((run) => run.runConfigId === prefs.runBId), [prefs.runBId, runConfigs]);
 
+  const requestedPalletId = useMemo(() => {
+    const hash = window.location.hash.replace(/^#\/?/, '');
+    const queryFromHash = hash.split('?')[1];
+    const params = new URLSearchParams(queryFromHash || window.location.search);
+    return params.get('pallet') || undefined;
+  }, []);
+
   useEffect(() => { const resolve = async () => {
     if (!configA) return setRunA(undefined);
     const layout = layouts.find((item) => item.layoutId === configA.layoutId);
@@ -43,6 +50,12 @@ export function PlayerComparePage({ layouts, batches, masters, runConfigs, prefs
   const canPlay = Boolean(runA && runB && layoutA && layoutB && samePalletList);
 
   const palletOrder = useMemo(() => runA?.palletOrder ?? runB?.palletOrder ?? [], [runA?.palletOrder, runB?.palletOrder]);
+  useEffect(() => {
+    if (!requestedPalletId || !palletOrder.length) return;
+    const nextIndex = palletOrder.indexOf(requestedPalletId);
+    if (nextIndex < 0 || nextIndex === prefs.palletIndex) return;
+    onChangePrefs({ ...prefs, palletIndex: nextIndex });
+  }, [onChangePrefs, palletOrder, prefs, requestedPalletId]);
   const safePalletIndex = Math.max(0, Math.min(prefs.palletIndex, Math.max(palletOrder.length - 1, 0)));
   const activePalletId = palletOrder[safePalletIndex];
   const pathA = useMemo(() => (!runA || !layoutA || !activePalletId ? [] : buildRunPath(layoutA, runA, activePalletId)), [activePalletId, layoutA, runA]);
