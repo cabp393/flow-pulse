@@ -10,9 +10,21 @@ interface PlayerRunPaneProps {
   layout?: Layout;
   palletId?: string;
   stepIndex: number;
+  runId?: string;
+  runOptions: RunResult[];
+  onSelectRun: (runId?: string) => void;
 }
 
-function PlayerRunPane({ title, run, layout, palletId, stepIndex }: PlayerRunPaneProps) {
+function PlayerRunPane({
+  title,
+  run,
+  layout,
+  palletId,
+  stepIndex,
+  runId,
+  runOptions,
+  onSelectRun,
+}: PlayerRunPaneProps) {
   const path = useMemo(() => {
     if (!run || !layout || !palletId) return [];
     return buildRunPath(layout, run, palletId);
@@ -22,15 +34,23 @@ function PlayerRunPane({ title, run, layout, palletId, stepIndex }: PlayerRunPan
   const pickPlan = palletResult?.pickPlan ?? [];
   const clampedStep = Math.min(stepIndex, Math.max(path.length - 1, 0));
   const visitCounts = useMemo(() => buildVisitCounts(path, clampedStep), [clampedStep, path]);
-  const isFinished = path.length > 0 && stepIndex >= path.length - 1;
 
   return (
     <section className="page">
-      <h3>{title}</h3>
-      <p>
-        {run ? `${run.name}${isFinished ? ' 🏁' : ''}` : 'Sin run seleccionado'}
-        {layout ? ` · Layout: ${layout.name}` : ' · Sin layout'}
-      </p>
+      <div className="player-pane-header">
+        <label>
+          {title}
+          <select value={runId ?? ''} onChange={(event) => onSelectRun(event.target.value || undefined)}>
+            <option value="">--</option>
+            {runOptions.map((option) => (
+              <option key={option.runId} value={option.runId}>
+                {option.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        {layout ? <small>{layout.name}</small> : <small>Sin layout</small>}
+      </div>
       {layout && (
         <GridCanvas
           layout={layout}
@@ -60,6 +80,11 @@ export function PlayerCompare({
   layoutB,
   palletId,
   stepIndex,
+  runs,
+  runAId,
+  runBId,
+  onSelectRunA,
+  onSelectRunB,
 }: {
   runA?: RunResult;
   runB?: RunResult;
@@ -67,11 +92,34 @@ export function PlayerCompare({
   layoutB?: Layout;
   palletId?: string;
   stepIndex: number;
+  runs: RunResult[];
+  runAId?: string;
+  runBId?: string;
+  onSelectRunA: (runId?: string) => void;
+  onSelectRunB: (runId?: string) => void;
 }) {
   return (
     <div className="compare-grid-wrap">
-      <PlayerRunPane title="Run A" run={runA} layout={layoutA} palletId={palletId} stepIndex={stepIndex} />
-      <PlayerRunPane title="Run B" run={runB} layout={layoutB} palletId={palletId} stepIndex={stepIndex} />
+      <PlayerRunPane
+        title="Run A"
+        run={runA}
+        layout={layoutA}
+        palletId={palletId}
+        stepIndex={stepIndex}
+        runOptions={runs}
+        runId={runAId}
+        onSelectRun={onSelectRunA}
+      />
+      <PlayerRunPane
+        title="Run B"
+        run={runB}
+        layout={layoutB}
+        palletId={palletId}
+        stepIndex={stepIndex}
+        runOptions={runs}
+        runId={runBId}
+        onSelectRun={onSelectRunB}
+      />
     </div>
   );
 }

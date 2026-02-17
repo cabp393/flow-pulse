@@ -10,7 +10,7 @@ export function PalletSelector({ palletOrder, palletIndex, onChange, disabled }:
   const selected = palletOrder[safeIndex] ?? '';
 
   return (
-    <label>
+    <label className="player-compact-field">
       Pallet
       <select
         value={selected}
